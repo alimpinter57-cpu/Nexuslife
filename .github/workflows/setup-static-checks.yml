@@ -43,7 +43,7 @@ jobs:
           missing = [item for item in required if item not in html]
           assert not missing, f"Core Pages dashboard feature markers missing: {missing}"
 
-          for form_id in ("notesForm", "workoutForm"):
+          for form_id in ("noteForm", "workoutForm"):
               assert f'id="{form_id}"' in html, f"Missing form: {form_id}"
 
           print(f"PASS: extracted {len(scripts)} inline script(s); Notes, Workout Logger and theme markers found")
