@@ -30,10 +30,10 @@ jobs:
           import re
 
           html = Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html, re.IGNORECASE)
+          scripts = re.findall(r"<script(?:\s[^>]*)?>([\s\S]*?)</script>", html, re.IGNORECASE)
           scripts = [script for script in scripts if script.strip()]
           assert scripts, "No inline JavaScript found in index.html"
-          Path("/tmp/nexuslife-pages.js").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/nexuslife-pages.js").write_text("\n".join(scripts), encoding="utf-8")
 
           required = [
               'function renderNotes()', 'function renderWorkouts()',
