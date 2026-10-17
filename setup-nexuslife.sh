@@ -48,7 +48,114 @@ npx create-next-app@latest $PROJECT_NAME \
     --turbopack
 
 cd $PROJECT_NAME
-print_success "Next.js app berhasil dibuat!"
+
+# Replace the default landing page with the first NexusLife app shell.
+cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'
+"use client"
+
+import { useState } from "react"
+import { Activity, BookOpen, Check, ChevronRight, Dumbbell, LayoutDashboard, Plus, Sparkles, Target } from "lucide-react"
+
+type Habit = { id: number; name: string; detail: string; done: boolean }
+
+const initialHabits: Habit[] = [
+  { id: 1, name: "Belajar teknologi", detail: "30 menit", done: false },
+  { id: 2, name: "Olahraga", detail: "Sesi hari ini", done: true },
+  { id: 3, name: "Membaca / mencatat", detail: "10 menit", done: false },
+]
+
+export default function Home() {
+  const [habits, setHabits] = useState(initialHabits)
+  const [activeTab, setActiveTab] = useState("Overview")
+  const completed = habits.filter((habit) => habit.done).length
+
+  function toggleHabit(id: number) {
+    setHabits((current) => current.map((habit) => habit.id === id ? { ...habit, done: !habit.done } : habit))
+  }
+
+  const navItems = [
+    { label: "Overview", icon: LayoutDashboard },
+    { label: "Habit Tracker", icon: Target },
+    { label: "Workout", icon: Dumbbell },
+    { label: "Notes", icon: BookOpen },
+  ]
+
+  return (
+    <main className="min-h-screen bg-[#f7f8fc] text-slate-900">
+      <div className="mx-auto flex min-h-screen max-w-7xl">
+        <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white p-6 md:flex md:flex-col">
+          <a href="#" className="mb-10 flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-indigo-600 text-white"><Sparkles size={20} /></span>
+            <span><span className="block text-lg font-bold tracking-tight">NexusLife</span><span className="text-xs text-slate-500">Personal workspace</span></span>
+          </a>
+          <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Workspace</p>
+          <nav className="space-y-1">
+            {navItems.map(({ label, icon: Icon }) => (
+              <button key={label} onClick={() => setActiveTab(label)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium transition ${activeTab === label ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                <Icon size={18} />{label}
+              </button>
+            ))}
+          </nav>
+          <div className="mt-auto rounded-2xl bg-slate-50 p-4">
+            <p className="text-sm font-semibold">Satu langkah kecil.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Konsistensi dibangun dari tindakan yang bisa diulang.</p>
+          </div>
+        </aside>
+
+        <section className="min-w-0 flex-1 p-5 sm:p-8 lg:p-10">
+          <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+            <div><p className="text-sm font-medium text-indigo-600">PERSONAL OPERATING SYSTEM</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{activeTab === "Overview" ? "Ringkasan hari ini" : activeTab}</h1><p className="mt-2 text-sm text-slate-500">Bangun progres yang terlihat, satu hari dalam satu waktu.</p></div>
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode demo · Data lokal sementara</div>
+          </header>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Habit selesai</span><span className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Check size={18} /></span></div><p className="mt-4 text-3xl font-bold">{completed}<span className="text-lg font-medium text-slate-400"> / {habits.length}</span></p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${habits.length ? completed / habits.length * 100 : 0}%` }} /></div></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Fokus utama</span><span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><Activity size={18} /></span></div><p className="mt-4 text-xl font-bold">Progres konsisten</p><p className="mt-2 text-sm text-slate-500">Utamakan langkah kecil yang realistis.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Target hari ini</span><span className="rounded-xl bg-amber-50 p-2 text-amber-600"><Target size={18} /></span></div><p className="mt-4 text-xl font-bold">Mulai, lalu catat</p><p className="mt-2 text-sm text-slate-500">Selesaikan satu hal sebelum menambah target.</p></div>
+          </div>
+
+          <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+              <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold">Habit hari ini</h2><p className="mt-1 text-sm text-slate-500">Centang setelah kamu menyelesaikannya.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{completed} selesai</span></div>
+              <div className="space-y-3">{habits.map((habit) => <button key={habit.id} onClick={() => toggleHabit(habit.id)} className="flex w-full items-center gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border ${habit.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"}`}><Check size={15} /></span><span className="min-w-0 flex-1"><span className={`block font-semibold ${habit.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{habit.name}</span><span className="mt-1 block text-xs text-slate-500">{habit.detail}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
+              <button onClick={() => setHabits((current) => [...current, { id: Math.max(0, ...current.map((habit) => habit.id)) + 1, name: "Habit baru", detail: "Ubah nama setelah ditambahkan", done: false }])} className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50"><Plus size={17} /> Tambah habit demo</button>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+              <h2 className="text-lg font-bold">Area kerja</h2><p className="mt-1 text-sm text-slate-500">Modul yang akan dikembangkan bertahap.</p>
+              <div className="mt-5 space-y-3">
+                {[{ title: "Habit Tracker", desc: "Kebiasaan, log, dan progres", icon: Target }, { title: "Workout Logger", desc: "Latihan, set, repetisi", icon: Dumbbell }, { title: "Notes", desc: "Catatan dan ide penting", icon: BookOpen }].map(({ title, desc, icon: Icon }) => <button key={title} onClick={() => setActiveTab(title)} className="flex w-full items-center gap-3 rounded-xl border border-slate-100 p-4 text-left hover:border-indigo-200 hover:bg-slate-50"><span className="rounded-xl bg-indigo-50 p-3 text-indigo-600"><Icon size={19} /></span><span className="flex-1"><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}
+              </div>
+              <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> data saat ini hanya tersimpan dalam state halaman. Login, database, dan sinkronisasi belum aktif.</div>
+            </section>
+          </div>
+          <footer className="mt-8 text-center text-xs text-slate-400">NexusLife · Tahap 01 — kerangka antarmuka awal</footer>
+        </section>
+      </div>
+    </main>
+  )
+}
+NEXUS_PAGE_EOF
+
+cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'
+import type { Metadata } from "next"
+import "./globals.css"
+
+export const metadata: Metadata = {
+  title: "NexusLife — Personal Workspace",
+  description: "Ruang pribadi untuk habit, workout, dan catatan.",
+}
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="id">
+      <body>{children}</body>
+    </html>
+  )
+}
+NEXUS_LAYOUT_EOF
+
+print_success "Next.js app berhasil dibuat dengan kerangka UI NexusLife!"
 
 # ============================================================================
 # STEP 2: Install Dependencies
