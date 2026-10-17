@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - stage-00/safe-setup
+      - stage-01/app-shell-v2
   pull_request:
     branches:
       - main
@@ -40,6 +41,110 @@ jobs:
           readme_block = script.split(marker, 1)[1].splitlines()
           readme_block = readme_block[1:readme_block.index("EOF")]
           assert sum(line.count("```") for line in readme_block) % 2 == 0, "Generated README has an unclosed Markdown code fence"
+          assert "cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'" in script, "Dashboard page heredoc missing"
+          assert "cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'" in script, "Dashboard layout heredoc missing"
+          assert "lucide-react" in script, "Dashboard icon dependency missing"
+          assert "NEXUS_PAGE_EOF" in script and "NEXUS_LAYOUT_EOF" in script, "Dashboard heredoc terminator missing"
 
           print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
           PY
+
+  dashboard-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Extract generated dashboard into a test project
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          script = Path("setup-nexuslife.sh").read_text(encoding="utf-8")
+
+          def extract(start, end):
+              assert start in script, f"Missing generated file marker: {start}"
+              block = script.split(start, 1)[1].splitlines()
+              assert end in block, f"Missing generated file terminator: {end}"
+              return "\n".join(block[:block.index(end)]) + "\n"
+
+          root = Path("/tmp/nexuslife-dashboard")
+          (root / "src/app").mkdir(parents=True)
+          (root / "src/app/page.tsx").write_text(
+              extract("cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'", "NEXUS_PAGE_EOF"),
+              encoding="utf-8",
+          )
+          (root / "src/app/layout.tsx").write_text(
+              extract("cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'", "NEXUS_LAYOUT_EOF"),
+              encoding="utf-8",
+          )
+          (root / "src/app/globals.css").write_text(
+              "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n",
+              encoding="utf-8",
+          )
+          (root / "package.json").write_text(json.dumps({
+              "name": "nexuslife-dashboard-ci",
+              "version": "1.0.0",
+              "private": True,
+              "scripts": {"build": "next build"},
+              "dependencies": {
+                  "lucide-react": "^0.468.0",
+                  "next": "15.5.28",
+                  "react": "19.1.10",
+                  "react-dom": "19.1.10"
+              },
+              "overrides": {
+                  "sharp": "^0.35.5"
+              },
+              "devDependencies": {
+                  "@types/node": "^20.17.0",
+                  "@types/react": "^19.0.0",
+                  "@types/react-dom": "^19.0.0",
+                  "typescript": "^5.7.0"
+              }
+          }, indent=2) + "\n", encoding="utf-8")
+          (root / "tsconfig.json").write_text(json.dumps({
+              "compilerOptions": {
+                  "target": "ES2017", "lib": ["dom", "dom.iterable", "esnext"],
+                  "allowJs": True, "skipLibCheck": True, "strict": True,
+                  "noEmit": True, "esModuleInterop": True, "module": "esnext",
+                  "moduleResolution": "bundler", "resolveJsonModule": True,
+                  "isolatedModules": True, "jsx": "preserve", "incremental": True,
+                  "plugins": [{"name": "next"}], "paths": {"@/*": ["./src/*"]}
+              },
+              "include": ["next-env.d.ts", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.ts", "**/*.tsx"],
+              "exclude": ["node_modules"]
+          }, indent=2) + "\n", encoding="utf-8")
+          (root / "next-env.d.ts").write_text('/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n', encoding="utf-8")
+          print("Extracted the exact dashboard page and layout from setup-nexuslife.sh")
+          PY
+
+      - name: Install dashboard test dependencies
+        working-directory: /tmp/nexuslife-dashboard
+        run: npm install
+
+      - name: Report dependency audit findings
+        working-directory: /tmp/nexuslife-dashboard
+        run: |
+          npm audit --json > /tmp/nexuslife-npm-audit.json || true
+          node - <<'NODE'
+          const report = require('/tmp/nexuslife-npm-audit.json');
+          const items = Object.entries(report.vulnerabilities || {});
+          if (items.length === 0) {
+            console.log('PASS: npm audit found no reported vulnerabilities.');
+          } else {
+            for (const [name, item] of items) {
+              console.log(`${item.severity.toUpperCase()}: ${name}; direct=${item.isDirect}; fixAvailable=${JSON.stringify(item.fixAvailable)}`);
+            }
+          }
+          NODE
+
+      - name: Build dashboard with Next.js
+        working-directory: /tmp/nexuslife-dashboard
+        run: npm run build
