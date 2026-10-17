@@ -1,0 +1,45 @@
+name: Setup script static checks
+
+on:
+  push:
+    branches:
+      - main
+      - stage-00/safe-setup
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Bash syntax
+        run: bash -n setup-nexuslife.sh
+
+      - name: Check setup safety and generated README
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          script = Path("setup-nexuslife.sh").read_text(encoding="utf-8")
+          assert "rm -rf" not in script, "Unsafe recursive deletion command found"
+          assert 'if [ ! -f .env ]; then' in script, ".env overwrite guard is missing"
+
+          opens = script.count("<< 'EOF'")
+          closes = sum(line == "EOF" for line in script.splitlines())
+          assert opens == closes, f"Heredoc count mismatch: {opens} openings, {closes} closings"
+
+          marker = "cat > README.md << 'EOF'"
+          assert marker in script, "Generated README heredoc not found"
+          readme_block = script.split(marker, 1)[1].splitlines()
+          readme_block = readme_block[1:readme_block.index("EOF")]
+          assert sum(line.count("```") for line in readme_block) % 2 == 0, "Generated README has an unclosed Markdown code fence"
+
+          print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
+          PY
