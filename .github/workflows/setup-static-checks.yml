@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - stage-00/safe-setup
+      - stage-01/app-shell
   pull_request:
     branches:
       - main
