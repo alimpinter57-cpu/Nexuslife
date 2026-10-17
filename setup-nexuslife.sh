@@ -804,7 +804,12 @@ NEXT_PUBLIC_POSTHOG_KEY=""
 NEXT_PUBLIC_POSTHOG_HOST=""
 EOF
 
-if [ ! -f .env.local ]; then cp .env.example .env.local; else print_warning ".env.local sudah ada; tidak ditimpa."; fi
+if [ ! -f .env ]; then
+    cp .env.example .env
+    print_warning "File .env dibuat dari template. Isi DATABASE_URL sebelum menjalankan migrasi."
+else
+    print_warning ".env sudah ada; tidak ditimpa."
+fi
 
 print_success "File .env.example berhasil dibuat!"
 
@@ -841,8 +846,8 @@ Aplikasi produktivitas serbaguna yang menggabungkan Habit Tracker, Workout Logge
 npm install
 
 # 2. Setup environment variables
-cp .env.example .env.local
-# Edit .env.local dengan konfigurasi database kamu
+cp .env.example .env
+# Edit .env dan isi DATABASE_URL PostgreSQL yang valid
 
 # 3. Generate Prisma Client
 npx prisma generate
@@ -862,7 +867,7 @@ print_success "README proyek berhasil dibuat!"
 echo
 print_success "Setup selesai. Langkah berikutnya:"
 echo "  cd $PROJECT_NAME"
-echo "  Edit .env.local dengan URL PostgreSQL yang valid"
+echo "  Edit .env dengan URL PostgreSQL yang valid"
 echo "  npx prisma generate"
 echo "  npx prisma migrate dev --name init"
 echo "  npm run dev"
