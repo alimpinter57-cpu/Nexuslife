@@ -99,6 +99,9 @@ jobs:
                   "react": "19.1.10",
                   "react-dom": "19.1.10"
               },
+              "overrides": {
+                  "sharp": "^0.35.5"
+              },
               "devDependencies": {
                   "@types/node": "^20.17.0",
                   "@types/react": "^19.0.0",
