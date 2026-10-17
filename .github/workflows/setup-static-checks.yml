@@ -129,6 +129,22 @@ jobs:
         working-directory: /tmp/nexuslife-dashboard
         run: npm install
 
+      - name: Report dependency audit findings
+        working-directory: /tmp/nexuslife-dashboard
+        run: |
+          npm audit --json > /tmp/nexuslife-npm-audit.json || true
+          node - <<'NODE'
+          const report = require('/tmp/nexuslife-npm-audit.json');
+          const items = Object.entries(report.vulnerabilities || {});
+          if (items.length === 0) {
+            console.log('PASS: npm audit found no reported vulnerabilities.');
+          } else {
+            for (const [name, item] of items) {
+              console.log(`${item.severity.toUpperCase()}: ${name}; direct=${item.isDirect}; fixAvailable=${JSON.stringify(item.fixAvailable)}`);
+            }
+          }
+          NODE
+
       - name: Build dashboard with Next.js
         working-directory: /tmp/nexuslife-dashboard
         run: npm run build
