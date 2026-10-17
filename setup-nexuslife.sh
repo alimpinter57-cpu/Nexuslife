@@ -860,6 +860,7 @@ npx prisma db seed
 
 # 6. Start development server
 npm run dev
+```
 EOF
 
 print_success "README proyek berhasil dibuat!"
