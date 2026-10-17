@@ -34,7 +34,7 @@ bash setup-nexuslife.sh
 
 ```bash
 cd nexuslife
-# Isi .env.local dengan DATABASE_URL PostgreSQL yang valid.
+# Isi .env dengan DATABASE_URL PostgreSQL yang valid.
 npx prisma generate
 npx prisma migrate dev --name init
 npm run dev
@@ -48,7 +48,7 @@ Buka alamat lokal yang ditampilkan Next.js (biasanya http://localhost:3000).
 - Blueprint ini mematok Prisma versi 6 agar cocok dengan sintaks schema yang digunakan. Prisma CLI membaca `DATABASE_URL` dari `.env` pada setup ini. Pastikan file `.env` berisi URL PostgreSQL yang valid sebelum menjalankan migrasi.
 - Autentikasi dalam blueprint awal masih placeholder demo dan **tidak aman untuk penggunaan nyata**.
 - GitHub Pages hanya cocok untuk konten statis. Aplikasi Next.js yang memakai backend Prisma membutuhkan hosting yang mendukung server dan database.
-- Jangan commit file rahasia seperti `.env.local`, token, atau password ke Git.
+- Jangan commit file rahasia seperti `.env`, `.env.local`, token, atau password ke Git.
 
 ## Rencana implementasi
 
