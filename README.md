@@ -28,7 +28,7 @@ Repositori ini masih berisi blueprint/setup dan halaman statis awal. Fitur-fitur
 bash setup-nexuslife.sh
 ```
 
-**Perlindungan data:** skrip akan berhenti jika folder `nexuslife` sudah ada. Skrip tidak menghapus folder tersebut dan tidak menimpa `.env.local` yang sudah tersedia. Simpan salinan cadangan sebelum melakukan perubahan besar.
+**Perlindungan data:** skrip akan berhenti jika folder `nexuslife` sudah ada. Skrip tidak menghapus folder tersebut dan tidak menimpa `.env` yang sudah tersedia. Simpan salinan cadangan sebelum melakukan perubahan besar.
 
 ## Setelah setup
 
@@ -45,7 +45,7 @@ Buka alamat lokal yang ditampilkan Next.js (biasanya http://localhost:3000).
 ## Catatan teknis
 
 - `setup-nexuslife.sh` adalah skrip Bash; `setup.bat` hanya launcher Windows.
-- Prisma memerlukan database PostgreSQL yang aktif dan konfigurasi `DATABASE_URL` yang benar.
+- Prisma CLI membaca `DATABASE_URL` dari `.env` pada setup ini. Pastikan file `.env` berisi URL PostgreSQL yang valid sebelum menjalankan migrasi.
 - Autentikasi dalam blueprint awal masih placeholder demo dan **tidak aman untuk penggunaan nyata**.
 - GitHub Pages hanya cocok untuk konten statis. Aplikasi Next.js yang memakai backend Prisma membutuhkan hosting yang mendukung server dan database.
 - Jangan commit file rahasia seperti `.env.local`, token, atau password ke Git.
