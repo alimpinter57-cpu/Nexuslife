@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - stage-00/safe-setup
+      - stage-01/app-shell-v2
   pull_request:
     branches:
       - main
@@ -40,6 +41,10 @@ jobs:
           readme_block = script.split(marker, 1)[1].splitlines()
           readme_block = readme_block[1:readme_block.index("EOF")]
           assert sum(line.count("```") for line in readme_block) % 2 == 0, "Generated README has an unclosed Markdown code fence"
+          assert "cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'" in script, "Dashboard page heredoc missing"
+          assert "cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'" in script, "Dashboard layout heredoc missing"
+          assert "lucide-react" in script, "Dashboard icon dependency missing"
+          assert "NEXUS_PAGE_EOF" in script and "NEXUS_LAYOUT_EOF" in script, "Dashboard heredoc terminator missing"
 
           print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
           PY
