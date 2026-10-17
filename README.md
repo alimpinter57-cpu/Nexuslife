@@ -11,7 +11,7 @@ Repositori ini masih berisi blueprint/setup dan halaman statis awal. Fitur-fitur
 
 ## Prasyarat setup lokal
 
-- Node.js versi LTS yang didukung Next.js.
+- Node.js 20.9 atau versi lebih baru yang didukung Next.js.
 - npm.
 - Git for Windows / Git Bash pada Windows.
 - PostgreSQL yang dapat diakses untuk menjalankan fitur database.
@@ -45,7 +45,7 @@ Buka alamat lokal yang ditampilkan Next.js (biasanya http://localhost:3000).
 ## Catatan teknis
 
 - `setup-nexuslife.sh` adalah skrip Bash; `setup.bat` hanya launcher Windows.
-- Prisma CLI membaca `DATABASE_URL` dari `.env` pada setup ini. Pastikan file `.env` berisi URL PostgreSQL yang valid sebelum menjalankan migrasi.
+- Blueprint ini mematok Prisma versi 6 agar cocok dengan sintaks schema yang digunakan. Prisma CLI membaca `DATABASE_URL` dari `.env` pada setup ini. Pastikan file `.env` berisi URL PostgreSQL yang valid sebelum menjalankan migrasi.
 - Autentikasi dalam blueprint awal masih placeholder demo dan **tidak aman untuk penggunaan nyata**.
 - GitHub Pages hanya cocok untuk konten statis. Aplikasi Next.js yang memakai backend Prisma membutuhkan hosting yang mendukung server dan database.
 - Jangan commit file rahasia seperti `.env.local`, token, atau password ke Git.
