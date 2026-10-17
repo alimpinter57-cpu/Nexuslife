@@ -846,8 +846,8 @@ Aplikasi produktivitas serbaguna yang menggabungkan Habit Tracker, Workout Logge
 npm install
 
 # 2. Setup environment variables
-cp .env.example .env
-# Edit .env dan isi DATABASE_URL PostgreSQL yang valid
+# Edit file .env yang sudah dibuat oleh Prisma; isi DATABASE_URL PostgreSQL yang valid.
+# Jangan menyalin .env.example ke .env jika .env sudah berisi konfigurasi.
 
 # 3. Generate Prisma Client
 npx prisma generate
