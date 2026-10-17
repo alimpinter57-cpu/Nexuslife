@@ -1,6 +1,4 @@
 const { chromium } = require("playwright");
-const { pathToFileURL } = require("node:url");
-const path = require("node:path");
 const assert = require("node:assert/strict");
 
 (async () => {
@@ -10,7 +8,7 @@ const assert = require("node:assert/strict");
   page.on("pageerror", error => errors.push(error.message));
 
   try {
-    await page.goto(pathToFileURL(path.resolve("index.html")).href);
+    await page.goto("http://127.0.0.1:4173/");
     await page.evaluate(() => localStorage.clear());
     await page.reload();
 
@@ -24,7 +22,7 @@ const assert = require("node:assert/strict");
     await page.locator('[data-page="Habit Tracker"]').first().click();
     await page.locator("#habitName").fill("CI smoke habit");
     await page.locator("#habitDetail").fill("5 menit");
-    await page.locator("#addForm button[type="submit"]'.replace('"submit"', "'submit'")).click();
+    await page.locator('#addForm button[type="submit"]').click();
     const habit = page.locator("#allHabits .habit").filter({ hasText: "CI smoke habit" });
     await habit.waitFor();
     await habit.locator("[data-toggle]").click();
@@ -39,7 +37,7 @@ const assert = require("node:assert/strict");
     await page.locator('[data-page="Notes"]').first().click();
     await page.locator("#noteTitle").fill("CI smoke note");
     await page.locator("#noteBody").fill("Notes persistence check");
-    await page.locator("#noteForm button[type="submit"]'.replace('"submit"', "'submit'")).click();
+    await page.locator('#noteForm button[type="submit"]').click();
     const note = page.locator("#notesList article").filter({ hasText: "CI smoke note" });
     await note.waitFor();
     await note.locator("[data-note-delete]").click();
@@ -50,7 +48,7 @@ const assert = require("node:assert/strict");
     await page.locator("#workoutExercise").fill("CI smoke push-up");
     await page.locator("#workoutSets").fill("2");
     await page.locator("#workoutReps").fill("6");
-    await page.locator("#workoutForm button[type="submit"]'.replace('"submit"', "'submit'")).click();
+    await page.locator('#workoutForm button[type="submit"]').click();
     const workout = page.locator("#workoutList article").filter({ hasText: "CI smoke push-up" });
     await workout.waitFor();
     await workout.locator("[data-workout-delete]").click();
