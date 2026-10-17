@@ -56,7 +56,7 @@ print_success "Next.js app berhasil dibuat!"
 print_step "Step 2/8: Menginstall dependencies..."
 
 npm install \
-    @prisma/client \
+    @prisma/client@6 \
     zod \
     react-hook-form \
     @hookform/resolvers \
@@ -69,7 +69,7 @@ npm install \
     bcryptjs \
     @types/bcryptjs
 
-npm install -D prisma
+npm install -D prisma@6
 
 print_success "Dependencies berhasil diinstall!"
 
@@ -87,7 +87,7 @@ print_success "Prisma berhasil diinisialisasi!"
 # ============================================================================
 print_step "Step 4/8: Menginisialisasi Shadcn UI..."
 
-npx shadcn@latest init -d --defaults
+npx shadcn@latest init --defaults
 
 print_success "Shadcn UI berhasil diinisialisasi!"
 
@@ -528,7 +528,7 @@ model Habit {
   icon            String?
   color           String?
   frequency       HabitFrequency  @default(DAILY)
-  customDays      Int[]?
+  customDays      Int[]          @default([])
   targetPerPeriod Int             @default(1)
   reminderTime    DateTime?
   reminderEnabled Boolean         @default(false)
@@ -825,7 +825,7 @@ Aplikasi produktivitas serbaguna yang menggabungkan Habit Tracker, Workout Logge
 
 ## 🛠️ Tech Stack
 
-- **Framework:** Next.js 14+ (App Router)
+- **Framework:** Next.js (App Router)
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS + Shadcn UI
 - **Database:** PostgreSQL + Prisma ORM
@@ -835,7 +835,7 @@ Aplikasi produktivitas serbaguna yang menggabungkan Habit Tracker, Workout Logge
 ## 📦 Getting Started
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 20.9+
 - PostgreSQL 15+
 - npm / yarn / pnpm
 
