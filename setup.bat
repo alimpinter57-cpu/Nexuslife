@@ -12,5 +12,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
+pushd "%~dp0"
 bash "%~dp0setup-nexuslife.sh"
-exit /b %errorlevel%
+set "SETUP_EXIT=%errorlevel%"
+popd
+exit /b %SETUP_EXIT%
