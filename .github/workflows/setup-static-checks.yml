@@ -50,6 +50,19 @@ jobs:
           PY
           node --check /tmp/nexuslife-pages.js
 
+      - name: Browser smoke tests for GitHub Pages dashboard
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/nexuslife-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node tests/pages-dashboard-smoke.cjs
+
       - name: Check setup safety and generated README
         run: |
           python3 - <<'PY'
