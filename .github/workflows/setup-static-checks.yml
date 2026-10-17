@@ -95,9 +95,9 @@ jobs:
               "scripts": {"build": "next build"},
               "dependencies": {
                   "lucide-react": "^0.468.0",
-                  "next": "15.5.27",
-                  "react": "19.1.7",
-                  "react-dom": "19.1.7"
+                  "next": "15.5.28",
+                  "react": "19.1.10",
+                  "react-dom": "19.1.10"
               },
               "devDependencies": {
                   "@types/node": "^20.17.0",
