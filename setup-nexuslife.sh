@@ -53,24 +53,65 @@ cd $PROJECT_NAME
 cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'
 "use client"
 
-import { useState } from "react"
-import { Activity, BookOpen, Check, ChevronRight, Dumbbell, LayoutDashboard, Plus, Sparkles, Target } from "lucide-react"
+import { FormEvent, useEffect, useState } from "react"
+import { Activity, BookOpen, Check, ChevronRight, Dumbbell, LayoutDashboard, Plus, Sparkles, Target, Trash2 } from "lucide-react"
 
-type Habit = { id: number; name: string; detail: string; done: boolean }
-
-const initialHabits: Habit[] = [
-  { id: 1, name: "Belajar teknologi", detail: "30 menit", done: false },
-  { id: 2, name: "Olahraga", detail: "Sesi hari ini", done: true },
-  { id: 3, name: "Membaca / mencatat", detail: "10 menit", done: false },
+type Habit = { id: string; name: string; detail: string; done: boolean }
+const STORAGE_KEY = "nexuslife-habits-v1"
+const starterHabits: Habit[] = [
+  { id: "starter-1", name: "Belajar teknologi", detail: "30 menit", done: false },
+  { id: "starter-2", name: "Olahraga", detail: "Sesi hari ini", done: true },
+  { id: "starter-3", name: "Membaca / mencatat", detail: "10 menit", done: false },
 ]
 
 export default function Home() {
-  const [habits, setHabits] = useState(initialHabits)
+  const [habits, setHabits] = useState<Habit[]>(starterHabits)
   const [activeTab, setActiveTab] = useState("Overview")
+  const [newName, setNewName] = useState("")
+  const [newDetail, setNewDetail] = useState("")
+  const [storageReady, setStorageReady] = useState(false)
   const completed = habits.filter((habit) => habit.done).length
 
-  function toggleHabit(id: number) {
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.every((item) => item && typeof item.id === "string" && typeof item.name === "string" && typeof item.detail === "string" && typeof item.done === "boolean")) {
+          setHabits(parsed as Habit[])
+        }
+      }
+    } catch {
+      // If browser storage is unavailable or invalid, keep the in-memory starter data.
+    } finally {
+      setStorageReady(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!storageReady) return
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(habits))
+    } catch {
+      // The tracker remains usable for this session if storage is blocked or full.
+    }
+  }, [habits, storageReady])
+
+  function addHabit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = newName.trim()
+    if (!name) return
+    setHabits((current) => [...current, { id: crypto.randomUUID(), name, detail: newDetail.trim() || "Belum ada target", done: false }])
+    setNewName("")
+    setNewDetail("")
+  }
+
+  function toggleHabit(id: string) {
     setHabits((current) => current.map((habit) => habit.id === id ? { ...habit, done: !habit.done } : habit))
+  }
+
+  function deleteHabit(id: string) {
+    setHabits((current) => current.filter((habit) => habit.id !== id))
   }
 
   const navItems = [
@@ -105,36 +146,56 @@ export default function Home() {
         <section className="min-w-0 flex-1 p-5 sm:p-8 lg:p-10">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div><p className="text-sm font-medium text-indigo-600">PERSONAL OPERATING SYSTEM</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{activeTab === "Overview" ? "Ringkasan hari ini" : activeTab}</h1><p className="mt-2 text-sm text-slate-500">Bangun progres yang terlihat, satu hari dalam satu waktu.</p></div>
-            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode demo · Data lokal sementara</div>
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode lokal · {storageReady ? "Penyimpanan browser aktif" : "Memuat data…"}</div>
           </header>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Habit selesai</span><span className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Check size={18} /></span></div><p className="mt-4 text-3xl font-bold">{completed}<span className="text-lg font-medium text-slate-400"> / {habits.length}</span></p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${habits.length ? completed / habits.length * 100 : 0}%` }} /></div></div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Fokus utama</span><span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><Activity size={18} /></span></div><p className="mt-4 text-xl font-bold">Progres konsisten</p><p className="mt-2 text-sm text-slate-500">Utamakan langkah kecil yang realistis.</p></div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Target hari ini</span><span className="rounded-xl bg-amber-50 p-2 text-amber-600"><Target size={18} /></span></div><p className="mt-4 text-xl font-bold">Mulai, lalu catat</p><p className="mt-2 text-sm text-slate-500">Selesaikan satu hal sebelum menambah target.</p></div>
-          </div>
-
-          <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold">Habit hari ini</h2><p className="mt-1 text-sm text-slate-500">Centang setelah kamu menyelesaikannya.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{completed} selesai</span></div>
-              <div className="space-y-3">{habits.map((habit) => <button key={habit.id} onClick={() => toggleHabit(habit.id)} className="flex w-full items-center gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border ${habit.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"}`}><Check size={15} /></span><span className="min-w-0 flex-1"><span className={`block font-semibold ${habit.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{habit.name}</span><span className="mt-1 block text-xs text-slate-500">{habit.detail}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
-              <button onClick={() => setHabits((current) => [...current, { id: Math.max(0, ...current.map((habit) => habit.id)) + 1, name: "Habit baru", detail: "Ubah nama setelah ditambahkan", done: false }])} className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50"><Plus size={17} /> Tambah habit demo</button>
-            </section>
-
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-              <h2 className="text-lg font-bold">Area kerja</h2><p className="mt-1 text-sm text-slate-500">Modul yang akan dikembangkan bertahap.</p>
-              <div className="mt-5 space-y-3">
-                {[{ title: "Habit Tracker", desc: "Kebiasaan, log, dan progres", icon: Target }, { title: "Workout Logger", desc: "Latihan, set, repetisi", icon: Dumbbell }, { title: "Notes", desc: "Catatan dan ide penting", icon: BookOpen }].map(({ title, desc, icon: Icon }) => <button key={title} onClick={() => setActiveTab(title)} className="flex w-full items-center gap-3 rounded-xl border border-slate-100 p-4 text-left hover:border-indigo-200 hover:bg-slate-50"><span className="rounded-xl bg-indigo-50 p-3 text-indigo-600"><Icon size={19} /></span><span className="flex-1"><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}
+          {activeTab === "Habit Tracker" ? (
+            <div className="space-y-6">
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Kebiasaanmu</h2><p className="mt-1 text-sm text-slate-500">Tambahkan kebiasaan yang realistis, lalu tandai saat selesai.</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{completed}/{habits.length} selesai</span></div>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${habits.length ? completed / habits.length * 100 : 0}%` }} /></div>
+                {habits.length === 0 ? <p className="mt-6 rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">Belum ada kebiasaan. Tambahkan satu di bawah.</p> : <div className="mt-5 space-y-3">{habits.map((habit) => <div key={habit.id} className="flex items-center gap-3 rounded-xl border border-slate-100 p-4"><button aria-label={habit.done ? `Tandai ${habit.name} belum selesai` : `Tandai ${habit.name} selesai`} onClick={() => toggleHabit(habit.id)} className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border ${habit.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"}`}><Check size={15} /></button><div className="min-w-0 flex-1"><p className={`font-semibold ${habit.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{habit.name}</p><p className="mt-1 text-xs text-slate-500">{habit.detail}</p></div><button aria-label={`Hapus ${habit.name}`} onClick={() => deleteHabit(habit.id)} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={17} /></button></div>)}</div>}
+              </section>
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                <h2 className="text-lg font-bold">Tambah kebiasaan</h2>
+                <form onSubmit={addHabit} className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium text-slate-700">Nama kebiasaan<input value={newName} onChange={(event) => setNewName(event.target.value)} maxLength={80} required placeholder="Contoh: Belajar Python" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 font-normal outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" /></label>
+                  <label className="text-sm font-medium text-slate-700">Target / catatan<input value={newDetail} onChange={(event) => setNewDetail(event.target.value)} maxLength={120} placeholder="Contoh: 20 menit" className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-3 font-normal outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" /></label>
+                  <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 sm:col-span-2"><Plus size={17} /> Tambahkan kebiasaan</button>
+                </form>
+                <p className="mt-3 text-xs leading-5 text-slate-500">Data disimpan di browser/perangkat ini. Belum tersinkron ke akun atau database, dan belum memiliki riwayat harian.</p>
+              </section>
+            </div>
+          ) : activeTab === "Overview" ? (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Habit selesai</span><span className="rounded-xl bg-emerald-50 p-2 text-emerald-600"><Check size={18} /></span></div><p className="mt-4 text-3xl font-bold">{completed}<span className="text-lg font-medium text-slate-400"> / {habits.length}</span></p><div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${habits.length ? completed / habits.length * 100 : 0}%` }} /></div></div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Fokus utama</span><span className="rounded-xl bg-indigo-50 p-2 text-indigo-600"><Activity size={18} /></span></div><p className="mt-4 text-xl font-bold">Progres konsisten</p><p className="mt-2 text-sm text-slate-500">Utamakan langkah kecil yang realistis.</p></div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:col-span-2 xl:col-span-1"><div className="flex items-center justify-between"><span className="text-sm text-slate-500">Target hari ini</span><span className="rounded-xl bg-amber-50 p-2 text-amber-600"><Target size={18} /></span></div><p className="mt-4 text-xl font-bold">Mulai, lalu catat</p><p className="mt-2 text-sm text-slate-500">Selesaikan satu hal sebelum menambah target.</p></div>
               </div>
-              <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> data saat ini hanya tersimpan dalam state halaman. Login, database, dan sinkronisasi belum aktif.</div>
-            </section>
-          </div>
-          <footer className="mt-8 text-center text-xs text-slate-400">NexusLife · Tahap 01 — kerangka antarmuka awal</footer>
+              <div className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                  <div className="mb-5 flex items-center justify-between"><div><h2 className="text-lg font-bold">Habit hari ini</h2><p className="mt-1 text-sm text-slate-500">Centang setelah kamu menyelesaikannya.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{completed} selesai</span></div>
+                  <div className="space-y-3">{habits.slice(0, 5).map((habit) => <button key={habit.id} onClick={() => toggleHabit(habit.id)} className="flex w-full items-center gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-indigo-200 hover:bg-slate-50"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-lg border ${habit.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-300 bg-white text-transparent"}`}><Check size={15} /></span><span className="min-w-0 flex-1"><span className={`block font-semibold ${habit.done ? "text-slate-400 line-through" : "text-slate-800"}`}>{habit.name}</span><span className="mt-1 block text-xs text-slate-500">{habit.detail}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
+                  <button onClick={() => setActiveTab("Habit Tracker")} className="mt-4 rounded-xl px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50">Kelola semua kebiasaan <ChevronRight size={15} className="inline" /></button>
+                </section>
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                  <h2 className="text-lg font-bold">Area kerja</h2><p className="mt-1 text-sm text-slate-500">Modul akan dibangun bertahap.</p>
+                  <div className="mt-5 space-y-3">{[{ title: "Habit Tracker", desc: "Kebiasaan, log, dan progres", icon: Target }, { title: "Workout", desc: "Latihan, set, repetisi", icon: Dumbbell }, { title: "Notes", desc: "Catatan dan ide penting", icon: BookOpen }].map(({ title, desc, icon: Icon }) => <button key={title} onClick={() => setActiveTab(title === "Workout" ? "Workout" : title)} className="flex w-full items-center gap-3 rounded-xl border border-slate-100 p-4 text-left hover:border-indigo-200 hover:bg-slate-50"><span className="rounded-xl bg-indigo-50 p-3 text-indigo-600"><Icon size={19} /></span><span className="flex-1"><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
+                  <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> Habit Tracker kini dapat digunakan secara lokal. Login, database, dan sinkronisasi belum aktif.</div>
+                </section>
+              </div>
+            </>
+          ) : (
+            <section className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">{activeTab === "Workout" ? <Dumbbell size={23} /> : <BookOpen size={23} />}</div><h2 className="mt-5 text-xl font-bold">{activeTab} akan dikembangkan berikutnya</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">{activeTab === "Workout" ? "Modul untuk mencatat sesi latihan, gerakan, set, repetisi, dan perkembangan." : "Modul untuk menyimpan catatan, ide, dan refleksi pribadi."} Untuk sekarang, gunakan Habit Tracker yang sudah aktif.</p><button onClick={() => setActiveTab("Habit Tracker")} className="mt-6 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Buka Habit Tracker</button></section>
+          )}
+          <footer className="mt-8 text-center text-xs text-slate-400">NexusLife · Tahap 02 — Habit Tracker lokal</footer>
         </section>
       </div>
     </main>
   )
 }
+
 NEXUS_PAGE_EOF
 
 cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'
