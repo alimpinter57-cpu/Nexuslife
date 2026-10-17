@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131b">
+  <meta name="description" content="NexusLife — ruang untuk mengelola kebiasaan, latihan, dan catatan pribadi.">
+  <title>NexusLife — Personal Operating System</title>
+  <style>
+    :root{color-scheme:dark;--bg:#10131b;--panel:#181d29;--text:#f4f6fb;--muted:#a7afc2;--line:#2b3345;--accent:#a6f0cf}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 75% 0%,#233b3b 0,transparent 38%),var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+    main{width:min(100% - 32px,960px);margin:0 auto;padding:28px 0 56px}.top{display:flex;align-items:center;gap:12px;font-weight:750;letter-spacing:.2px}.mark{display:grid;place-items:center;width:40px;height:40px;border-radius:13px;background:var(--accent);color:#10221d;font-weight:900;font-size:21px}
+    .hero{padding:76px 0 48px;max-width:720px}.eyebrow{color:var(--accent);font-size:.82rem;font-weight:750;letter-spacing:.14em;text-transform:uppercase}.hero h1{font-size:clamp(2.5rem,8vw,5rem);line-height:1.02;letter-spacing:-.055em;margin:16px 0 20px}.hero p{font-size:1.12rem;color:var(--muted);max-width:620px;margin:0}
+    .status{display:inline-flex;align-items:center;gap:9px;border:1px solid #476456;background:#1b2b29;color:#d5f8e6;padding:8px 12px;border-radius:999px;font-size:.88rem;margin-top:26px}.dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:10px}.card{background:rgba(24,29,41,.88);border:1px solid var(--line);border-radius:18px;padding:22px}.icon{font-size:1.55rem}.card h2{font-size:1.08rem;margin:12px 0 6px}.card p{font-size:.94rem;color:var(--muted);margin:0}
+    .note{margin-top:22px;padding:18px 20px;border-left:3px solid var(--accent);background:rgba(24,29,41,.7);border-radius:0 12px 12px 0;color:var(--muted);font-size:.93rem}.note strong{color:var(--text)}footer{border-top:1px solid var(--line);margin-top:52px;padding-top:18px;color:var(--muted);font-size:.85rem}
+    @media(max-width:650px){.hero{padding:56px 0 36px}.grid{grid-template-columns:1fr}.card{padding:18px}}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="top"><div class="mark">N</div><span>NexusLife</span></div>
+    <section class="hero">
+      <div class="eyebrow">Personal Operating System</div>
+      <h1>Bangun hidupmu,<br>selangkah demi selangkah.</h1>
+      <p>Ruang pribadi untuk merencanakan kebiasaan, mencatat latihan, dan menyimpan catatan penting—dengan fokus pada kemajuan yang konsisten.</p>
+      <div class="status"><span class="dot"></span>Halaman berhasil dimuat · Aplikasi sedang disiapkan</div>
+    </section>
+    <section class="grid" aria-label="Rencana fitur NexusLife">
+      <article class="card"><div class="icon" aria-hidden="true">✓</div><h2>Habit Tracker</h2><p>Rencanakan kebiasaan dan pantau konsistensi dari waktu ke waktu.</p></article>
+      <article class="card"><div class="icon" aria-hidden="true">↗</div><h2>Workout Logger</h2><p>Catat sesi latihan dan lihat perkembangan latihanmu.</p></article>
+      <article class="card"><div class="icon" aria-hidden="true">▤</div><h2>Notes</h2><p>Simpan ide, refleksi, dan catatan dalam satu ruang.</p></article>
+    </section>
+    <div class="note"><strong>Status transparan:</strong> ini adalah halaman awal agar alamat situs tidak lagi menampilkan 404. Fitur aplikasi di atas masih berupa rencana; aplikasi lengkap belum tersedia di repositori yang dipublikasikan.</div>
+    <footer>© <span id="year"></span> NexusLife · Dibuat untuk mendukung perkembangan diri.</footer>
+  </main>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
