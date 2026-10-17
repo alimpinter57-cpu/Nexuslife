@@ -35,10 +35,11 @@ jobs:
           closes = sum(line == "EOF" for line in script.splitlines())
           assert opens == closes, f"Heredoc count mismatch: {opens} openings, {closes} closings"
 
-          marker = "cat > README.md << 'EOF'\\n"
+          marker = "cat > README.md << 'EOF'"
           assert marker in script, "Generated README heredoc not found"
-          readme_block = script.split(marker, 1)[1].split("\\nEOF\\n", 1)[0]
-          assert readme_block.count("```") % 2 == 0, "Generated README has an unclosed Markdown code fence"
+          readme_block = script.split(marker, 1)[1].splitlines()
+          readme_block = readme_block[1:readme_block.index("EOF")]
+          assert sum(line.count("```") for line in readme_block) % 2 == 0, "Generated README has an unclosed Markdown code fence"
 
           print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
           PY
