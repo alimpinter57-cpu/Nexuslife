@@ -23,6 +23,33 @@ jobs:
       - name: Check Bash syntax
         run: bash -n setup-nexuslife.sh
 
+      - name: Check static Pages dashboard JavaScript and core controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          html = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", html, re.IGNORECASE)
+          scripts = [script for script in scripts if script.strip()]
+          assert scripts, "No inline JavaScript found in index.html"
+          Path("/tmp/nexuslife-pages.js").write_text("\\n".join(scripts), encoding="utf-8")
+
+          required = [
+              'function renderNotes()', 'function renderWorkouts()',
+              'nexuslife-notes-v1', 'nexuslife-workouts-v1',
+              'addEventListener("submit"', 'data-theme="light"',
+          ]
+          missing = [item for item in required if item not in html]
+          assert not missing, f"Core Pages dashboard feature markers missing: {missing}"
+
+          for form_id in ("notesForm", "workoutForm"):
+              assert f'id="{form_id}"' in html, f"Missing form: {form_id}"
+
+          print(f"PASS: extracted {len(scripts)} inline script(s); Notes, Workout Logger and theme markers found")
+          PY
+          node --check /tmp/nexuslife-pages.js
+
       - name: Check setup safety and generated README
         run: |
           python3 - <<'PY'
