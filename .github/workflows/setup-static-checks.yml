@@ -211,6 +211,7 @@ jobs:
       - name: Validate canonical Prisma schema
         env:
           DATABASE_URL: postgresql://nexuslife_ci:ci_password@127.0.0.1:5432/nexuslife?schema=public
+          DIRECT_URL: postgresql://nexuslife_ci:ci_password@127.0.0.1:5432/nexuslife?schema=public
         run: npx --yes prisma@6 validate --schema prisma/schema.prisma
 
       - name: Ensure setup script uses the canonical schema
