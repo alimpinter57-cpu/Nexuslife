@@ -1,42 +1,48 @@
-# Supabase + Prisma — Nexuslife
+# Supabase + Prisma — NexusLife
 
-This file documents the next database setup step. It does not contain credentials.
+Panduan ini menyiapkan koneksi; tidak berisi kredensial dan tidak mengklaim bahwa database sudah diuji.
 
-## 1. Create a Supabase project
-1. Create a project in the Supabase dashboard and keep the database password private.
-2. In **Project Settings → Database**, obtain the connection strings.
-3. Use the **pooler connection** for the running application when recommended by Supabase; use the **direct connection** for Prisma CLI migrations if your network/provider supports it.
+## 1. Jenis koneksi yang dipilih
 
-## 2. Configure the generated Next.js project
-Create or edit `.env` in the generated `nexuslife/` folder (never commit this file):
+- **DATABASE_URL**: gunakan URI **Session pooler** dari Supabase untuk koneksi aplikasi. Pastikan memilih mode session, bukan transaction pooler, untuk pola koneksi Prisma yang memerlukan koneksi sesi.
+- **DIRECT_URL**: utamakan URI **Direct connection** untuk migrasi Prisma jika jaringan mendukungnya.
+- Jika Supabase memperingatkan bahwa Direct connection tidak mendukung jaringan IPv4 yang sedang digunakan, gunakan URI **Session pooler** dengan port/mode session yang diberikan Supabase sebagai `DIRECT_URL` juga. Jangan gunakan Transaction pooler untuk `DIRECT_URL` migrasi.
+- Gunakan host, port, nama database, dan username persis seperti yang ditampilkan dashboard. Jangan menebak atau menyalin port dari contoh.
+
+## 2. Simpan koneksi secara lokal
+
+Di folder proyek Next.js yang dibuat oleh `setup-nexuslife.sh`, buka atau buat file `.env`:
 
 ```dotenv
-# Runtime connection (Supabase pooler, if using pooled connections)
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/postgres?pgbouncer=true"
-
-# Direct connection for Prisma migrations; use the exact URI Supabase provides
-DIRECT_URL="postgresql://USER:PASSWORD@HOST:5432/postgres"
+DATABASE_URL="PASTE_SESSION_POOLER_URI_DI_SINI"
+DIRECT_URL="PASTE_DIRECT_URI_ATAU_SESSION_POOLER_URI_DI_SINI"
 ```
 
-These are illustrative shapes only. Replace them with the exact connection strings from your own Supabase project; do not copy the example hosts or ports blindly.
+Ganti nilai contoh dengan URI dari proyek Supabase sendiri. Jangan menambahkan awalan `NEXT_PUBLIC_`. Jangan commit file `.env` ke GitHub dan jangan kirim password/URI lengkap melalui chat.
 
-## 3. Prisma schema configuration
-The schema currently uses `DATABASE_URL` as its datasource. Before relying on `DIRECT_URL`, add `directUrl = env("DIRECT_URL")` to the Prisma datasource block, and ensure both variables exist in the local environment. Keep this change in sync with the canonical schema at `prisma/schema.prisma` and the schema embedded/copied by `setup-nexuslife.sh`.
+## 3. Konfigurasi Prisma
 
-Then, inside the generated project:
+Skema kanonis `prisma/schema.prisma` sudah menggunakan `DATABASE_URL` untuk runtime dan `DIRECT_URL` sebagai URL langsung untuk operasi Prisma CLI. `setup-nexuslife.sh` menyalin skema kanonis tersebut ke proyek baru.
+
+Setelah mengisi `.env`, jalankan dari folder proyek Next.js:
 
 ```bash
 npx prisma validate
 npx prisma generate
+```
+
+Jika validasi berhasil dan proyek Supabase memang baru/kosong, tinjau skema lalu jalankan migrasi awal:
+
+```bash
 npx prisma migrate dev --name init
 ```
 
-Review the migration before applying it. Do not run migrations against a database containing important data without a backup.
+Jangan jalankan migrasi pada database yang sudah berisi data penting tanpa meninjau perubahan dan membuat cadangan terlebih dahulu.
 
-## Security and deployment
-- Never commit `.env`, database passwords, or Supabase service-role keys.
-- The database URL is server-only. Do not prefix it with `NEXT_PUBLIC_`.
-- Do not expose a service-role key in browser code.
-- A real authenticated-user boundary and workspace ownership checks are required before using this as a multi-user production app.
-- GitHub Pages cannot run Next.js API routes or Prisma. Deploy the server-capable app separately.
-- Schema validation is not a live database connection test; a successful migration is a separate verification step.
+## Keamanan dan batasan
+
+- Jangan commit `.env`, password database, access token, atau Supabase service-role key.
+- Jangan mengekspos service-role key di kode browser.
+- Validasi skema tidak membuktikan koneksi database aktif; migrasi sukses adalah pemeriksaan terpisah.
+- Endpoint API yang ada masih menggunakan helper autentikasi demo yang fail-closed di production. Jangan anggap login/otorisasi multi-pengguna sudah siap sebelum autentikasi nyata dan pemeriksaan kepemilikan workspace diterapkan.
+- GitHub Pages tidak dapat menjalankan Next.js API routes atau Prisma. Aplikasi backend harus dideploy ke hosting yang mendukung server-side runtime.
