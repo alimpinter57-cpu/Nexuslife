@@ -7,6 +7,7 @@ on:
       - stage-00/safe-setup
       - stage-01/app-shell-v2
       - work/blueprint-phase-00
+      - work/blueprint-phase-03
   pull_request:
     branches:
       - main
@@ -189,3 +190,24 @@ jobs:
       - name: Build dashboard with Next.js
         working-directory: /tmp/nexuslife-dashboard
         run: npm run build
+
+  prisma-schema-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate canonical Prisma schema
+        env:
+          DATABASE_URL: postgresql://nexuslife_ci:ci_password@127.0.0.1:5432/nexuslife?schema=public
+        run: npx --yes prisma@6 validate --schema prisma/schema.prisma
+
+      - name: Ensure setup script uses the canonical schema
+        run: |
+          grep -Fq 'cp "$SCRIPT_DIR/prisma/schema.prisma" prisma/schema.prisma' setup-nexuslife.sh
+          grep -Fq 'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"' setup-nexuslife.sh
