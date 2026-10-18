@@ -588,6 +588,14 @@ fi
 
 print_success "Prisma Schema berhasil dibuat!"
 
+# Install the database-backed Habit API templates after the base scaffold exists.
+print_step "Bonus: Menambahkan API Habit berbasis PostgreSQL..."
+mkdir -p src/app/api/habits/\[habitId\] src/lib
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
+cp "$SCRIPT_DIR/templates/phase-03/habit-route.ts" src/app/api/habits/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/habit-item-route.ts" 'src/app/api/habits/[habitId]/route.ts'
+print_success "Template API Habit berhasil disalin. Autentikasi tetap fail-closed sampai tahap auth selesai."
+
 # ============================================================================
 # STEP 9: Update .env.example
 # ============================================================================
