@@ -6,6 +6,7 @@ on:
       - main
       - stage-00/safe-setup
       - stage-01/app-shell-v2
+      - work/blueprint-phase-00
   pull_request:
     branches:
       - main
