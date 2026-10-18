@@ -87,6 +87,12 @@ jobs:
           assert "cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'" in script, "Dashboard layout heredoc missing"
           assert "lucide-react" in script, "Dashboard icon dependency missing"
           assert "NEXUS_PAGE_EOF" in script and "NEXUS_LAYOUT_EOF" in script, "Dashboard heredoc terminator missing"
+          assert 'cp "$SCRIPT_DIR/prisma/schema.prisma" prisma/schema.prisma' in script, "Canonical Prisma schema copy missing"
+          assert 'templates/phase-03/habit-route.ts' in script, "Habit API template copy missing"
+          assert 'templates/phase-03/habit-item-route.ts' in script, "Habit item API template copy missing"
+          assert 'NEXUSLIFE_LOCAL_WORKSPACE_ID' in Path("templates/phase-03/src/lib/auth.ts").read_text(), "Fail-closed local auth scope missing"
+          assert 'workspaceId: session.workspaceId' in Path("templates/phase-03/habit-route.ts").read_text(), "Habit API workspace scope missing"
+          assert 'habitId_date' in Path("templates/phase-03/habit-item-route.ts").read_text(), "Daily completion uniqueness upsert missing"
 
           print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
           PY
