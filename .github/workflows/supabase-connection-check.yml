@@ -1,0 +1,31 @@
+name: Check Supabase database connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-connection:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check required secrets are configured
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
+            echo "Missing DATABASE_URL or DIRECT_URL repository Actions secret."
+            exit 1
+          fi
+          echo "Both required secrets are present; values will not be printed."
+      - name: Check database connection and migration status (read-only)
+        run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
