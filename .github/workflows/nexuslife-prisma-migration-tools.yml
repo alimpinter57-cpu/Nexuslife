@@ -1,0 +1,14 @@
+name: NexusLife Prisma Migration Tools
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain manual migration workflow
+        run: echo "Migration tooling is maintained on the work/blueprint-phase-03 branch."
