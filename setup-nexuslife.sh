@@ -622,6 +622,10 @@ DATABASE_URL="postgresql://user:password@localhost:5432/nexuslife?schema=public"
 NEXT_PUBLIC_SUPABASE_URL=""
 NEXT_PUBLIC_SUPABASE_ANON_KEY=""
 
+# Optional local-only auth scope for an isolated development database.
+# Never set this in production; production requires a verified Supabase session.
+NEXUSLIFE_LOCAL_WORKSPACE_ID=""
+
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_NAME="NexusLife"
@@ -681,6 +685,10 @@ npm install
 
 # 3. Generate Prisma Client
 npx prisma generate
+
+# Local-only test shortcut (optional): set NEXUSLIFE_LOCAL_WORKSPACE_ID to an existing
+# workspace ID only on an isolated development database. Never use in production.
+# Production authentication always requires a verified Supabase session.
 
 # 4. Database migration (do not run automatically on the existing NexusLife Supabase project)
 # Review prisma/migrations and the target database migration history first.
