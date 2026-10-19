@@ -36,8 +36,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     const { todayCompleted, ...updates } = parsed.data
     const habit = await prisma.$transaction(async (tx) => {
       const updated = Object.keys(updates).length
-        ? await tx.habit.update({ where: { id: habitId }, data: updates })
-        : await tx.habit.findUniqueOrThrow({ where: { id: habitId } })
+        ? await tx.habit.update({ where: { id: habitId, workspaceId: session.workspaceId, deletedAt: null }, data: updates })
+        : await tx.habit.findFirstOrThrow({ where: { id: habitId, workspaceId: session.workspaceId, deletedAt: null } })
       if (typeof todayCompleted === "boolean") {
         const date = utcDay()
         await tx.habitLog.upsert({
