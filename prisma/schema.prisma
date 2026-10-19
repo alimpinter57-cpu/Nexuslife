@@ -68,6 +68,8 @@ enum DocumentVisibility {
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
+  // Nullable until an existing account is explicitly linked to Supabase Auth.
+  supabaseAuthId String?   @unique
   passwordHash  String
   name          String?
   avatar        String?
