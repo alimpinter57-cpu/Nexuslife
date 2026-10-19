@@ -675,11 +675,13 @@ npm install
 # 3. Generate Prisma Client
 npx prisma generate
 
-# 4. Run database migrations
-npx prisma migrate dev --name init
+# 4. Database migration (do not run automatically on the existing NexusLife Supabase project)
+# Review prisma/migrations and the target database migration history first.
+# For a fresh local database only, create/apply a migration intentionally.
+# npx prisma migrate dev --name init
 
-# 5. (Optional) Seed database
-npx prisma db seed
+# 5. Seed only a disposable development database after reviewing the seed script.
+# npx prisma db seed
 
 # 6. Start development server
 npm run dev
@@ -693,5 +695,6 @@ print_success "Setup selesai. Langkah berikutnya:"
 echo "  cd $PROJECT_NAME"
 echo "  Edit .env dengan URL PostgreSQL yang valid"
 echo "  npx prisma generate"
-echo "  npx prisma migrate dev --name init"
+echo "  Pastikan auth dan environment sudah dikonfigurasi sebelum menguji API."
+echo "  Jangan jalankan migrate dev/seed terhadap Supabase yang sudah berisi data tanpa audit."
 echo "  npm run dev"
