@@ -30,5 +30,24 @@ jobs:
           fi
           echo "Both required secrets are present; values will not be printed."
 
+      - name: Inspect migration files for this branch
+        id: migrations
+        shell: bash
+        run: |
+          echo "Branch/ref: $GITHUB_REF"
+          echo "Commit: $(git rev-parse --short HEAD)"
+          if [ -d prisma/migrations ]; then
+            find prisma/migrations -mindepth 2 -maxdepth 2 -name migration.sql -print
+          else
+            echo "No prisma/migrations directory exists on this branch."
+          fi
+          if ! find prisma/migrations -mindepth 2 -maxdepth 2 -name migration.sql -print -quit 2>/dev/null | grep -q .; then
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping Prisma migration-status check: this branch contains no migration.sql files. This is not a database health check."
+          else
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check database connection and migration status (read-only)
+        if: steps.migrations.outputs.has_migrations == 'true'
         run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
