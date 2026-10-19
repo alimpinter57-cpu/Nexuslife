@@ -19,14 +19,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Generate SQL from the canonical Prisma schema
+      - name: Generate SQL and refuse to rewrite an existing migration
         run: |
+          set -euo pipefail
           mkdir -p prisma/migrations/0001_initial
-          npx --yes prisma@6 migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_initial/migration.sql
-          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
-          test -s prisma/migrations/0001_initial/migration.sql
-      - name: Commit migration files to the working branch
+          tmp_sql="$(mktemp)"
+          trap 'rm -f "$tmp_sql"' EXIT
+
+          npx --yes prisma@6 migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "$tmp_sql"
+          test -s "$tmp_sql"
+
+          migration="prisma/migrations/0001_initial/migration.sql"
+          if [ -s "$migration" ]; then
+            if ! cmp -s "$tmp_sql" "$migration"; then
+              echo "::error::The initial migration already exists and differs from the current schema. Refusing to overwrite migration history. Create a reviewed, forward-only migration instead."
+              exit 1
+            fi
+            echo "Existing initial migration matches generated SQL; leaving it unchanged."
+          else
+            cp "$tmp_sql" "$migration"
+          fi
+
+          lock="prisma/migrations/migration_lock.toml"
+          expected_lock='provider = "postgresql"'
+          if [ -s "$lock" ] && ! grep -Fxq "$expected_lock" "$lock"; then
+            echo "::error::Existing migration_lock.toml has unexpected content; refusing to overwrite it."
+            exit 1
+          fi
+          if [ ! -s "$lock" ]; then
+            printf '%s\n' "$expected_lock" > "$lock"
+          fi
+
+      - name: Commit new migration files only when safe
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add prisma/migrations
