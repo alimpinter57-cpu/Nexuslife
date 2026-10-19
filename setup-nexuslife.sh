@@ -598,6 +598,10 @@ cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
+mkdir -p src/app/api/auth/signup src/app/api/auth/callback src/app/api/auth/signout
+cp "$SCRIPT_DIR/templates/phase-03/auth-signup-route.ts" src/app/api/auth/signup/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/auth-callback-route.ts" src/app/api/auth/callback/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/auth-signout-route.ts" src/app/api/auth/signout/route.ts
 cp "$SCRIPT_DIR/templates/phase-03/habit-route.ts" src/app/api/habits/route.ts
 cp "$SCRIPT_DIR/templates/phase-03/habit-item-route.ts" 'src/app/api/habits/[habitId]/route.ts'
 print_success "Template API Habit berhasil disalin. Autentikasi tetap fail-closed sampai tahap auth selesai."
