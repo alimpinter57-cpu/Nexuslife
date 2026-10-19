@@ -27,6 +27,10 @@ export async function POST(request: Request) {
     // Avoid exposing provider internals or whether an email already exists.
     return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
   }
+  if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    // Supabase may return an obfuscated user for an existing email; never provision it.
+    return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
