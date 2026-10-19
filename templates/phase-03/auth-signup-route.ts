@@ -17,12 +17,21 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Isi nama, email, dan kata sandi minimal 8 karakter." }, { status: 400 })
 
   const email = parsed.data.email.toLowerCase()
-  const supabase = await createSupabaseServerClient()
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password: parsed.data.password,
-    options: { data: { name: parsed.data.name } },
-  })
+  let data: Awaited<ReturnType<Awaited<ReturnType<typeof createSupabaseServerClient>>["auth"]["signUp"]>>["data"]
+  let error: Awaited<ReturnType<Awaited<ReturnType<typeof createSupabaseServerClient>>["auth"]["signUp"]>>["error"]
+  try {
+    const supabase = await createSupabaseServerClient()
+    const result = await supabase.auth.signUp({
+      email,
+      password: parsed.data.password,
+      options: { data: { name: parsed.data.name } },
+    })
+    data = result.data
+    error = result.error
+  } catch {
+    console.error("Signup provider unavailable.")
+    return NextResponse.json({ error: "Pendaftaran sementara tidak tersedia. Coba lagi nanti." }, { status: 503 })
+  }
   if (error || !data.user) {
     // Avoid exposing provider internals or whether an email already exists.
     return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
