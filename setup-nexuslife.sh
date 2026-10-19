@@ -228,6 +228,9 @@ print_step "Step 2/8: Menginstall dependencies..."
 
 npm install \
     @prisma/client@6 \
+    @supabase/ssr \
+    @supabase/supabase-js \
+    server-only \
     zod \
     react-hook-form \
     @hookform/resolvers \
@@ -592,6 +595,9 @@ print_success "Prisma Schema berhasil dibuat!"
 print_step "Bonus: Menambahkan API Habit berbasis PostgreSQL..."
 mkdir -p src/app/api/habits/\[habitId\] src/lib
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
 cp "$SCRIPT_DIR/templates/phase-03/habit-route.ts" src/app/api/habits/route.ts
 cp "$SCRIPT_DIR/templates/phase-03/habit-item-route.ts" 'src/app/api/habits/[habitId]/route.ts'
 print_success "Template API Habit berhasil disalin. Autentikasi tetap fail-closed sampai tahap auth selesai."
@@ -605,9 +611,9 @@ cat > .env.example << 'EOF'
 # Database
 DATABASE_URL="postgresql://user:password@localhost:5432/nexuslife?schema=public"
 
-# Auth (NextAuth.js example)
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-here"
+# Supabase Auth (public anon key only; never put service-role keys here)
+NEXT_PUBLIC_SUPABASE_URL=""
+NEXT_PUBLIC_SUPABASE_ANON_KEY=""
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
