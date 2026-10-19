@@ -1,0 +1,50 @@
+name: Deploy initial Prisma migration to Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_empty_database:
+        description: "Confirm Supabase project is empty and may receive the initial schema"
+        required: true
+        type: choice
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-migration:
+    if: ${{ inputs.confirm_empty_database == 'yes' }}
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/blueprint-phase-03
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify required secrets exist without printing them
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
+            echo "Missing DATABASE_URL or DIRECT_URL repository Actions secret."
+            exit 1
+          fi
+          echo "Required database secrets are present."
+      - name: Verify migration files exist
+        shell: bash
+        run: |
+          test -s prisma/migrations/0001_initial/migration.sql
+          test -s prisma/migrations/migration_lock.toml
+          echo "Initial migration files found."
+      - name: Apply committed migrations
+        run: npx --yes prisma@6 migrate deploy --schema prisma/schema.prisma
+      - name: Verify migration status
+        run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
