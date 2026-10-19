@@ -7,8 +7,32 @@ permissions:
   contents: write
 
 jobs:
-  note:
+  generate-migration:
     runs-on: ubuntu-latest
     steps:
-      - name: Explain manual migration workflow
-        run: echo "Migration tooling is maintained on the work/blueprint-phase-03 branch."
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/blueprint-phase-03
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate SQL from the canonical Prisma schema
+        run: |
+          mkdir -p prisma/migrations/0001_initial
+          npx --yes prisma@6 migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_initial/migration.sql
+          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
+          test -s prisma/migrations/0001_initial/migration.sql
+      - name: Commit migration files to the working branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+          else
+            git commit -m "Generate initial Prisma migration from schema"
+            git push origin HEAD:work/blueprint-phase-03
+          fi
