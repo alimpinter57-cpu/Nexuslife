@@ -70,7 +70,8 @@ model User {
   email         String    @unique
   // Nullable until an existing account is explicitly linked to Supabase Auth.
   supabaseAuthId String?   @unique
-  passwordHash  String
+  // Legacy password auth only; Supabase Auth users do not store local passwords.
+  passwordHash  String?
   name          String?
   avatar        String?
   role          UserRole  @default(FREE)
