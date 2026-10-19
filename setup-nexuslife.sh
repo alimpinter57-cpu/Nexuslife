@@ -597,6 +597,9 @@ mkdir -p src/app/api/habits/\[habitId\] src/lib
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase-browser.ts
+cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx" 'src/app/(auth)/login/page.tsx'
+cp "$SCRIPT_DIR/templates/phase-03/register-page.tsx" 'src/app/(auth)/register/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
 mkdir -p src/app/api/auth/signup src/app/api/auth/callback src/app/api/auth/signout
 cp "$SCRIPT_DIR/templates/phase-03/auth-signup-route.ts" src/app/api/auth/signup/route.ts
