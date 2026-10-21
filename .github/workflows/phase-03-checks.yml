@@ -1,0 +1,74 @@
+name: Phase 03 safety and schema checks
+
+on:
+  push:
+    branches:
+      - work/blueprint-phase-03
+    paths:
+      - "prisma/**"
+      - "templates/phase-03/**"
+      - "setup-nexuslife.sh"
+      - ".github/workflows/phase-03-checks.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "prisma/**"
+      - "templates/phase-03/**"
+      - "setup-nexuslife.sh"
+      - ".github/workflows/phase-03-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-and-template-checks:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+      DIRECT_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check setup script syntax
+        run: bash -n setup-nexuslife.sh
+
+      - name: Check Prisma schema
+        run: |
+          npm install --no-save prisma@6
+          npx prisma validate --schema prisma/schema.prisma
+
+      - name: Check Habit API security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          route="templates/phase-03/habit-route.ts"
+          item="templates/phase-03/habit-item-route.ts"
+          auth="templates/phase-03/src/lib/auth.ts"
+
+          test -f "$route"
+          test -f "$item"
+          test -f "$auth"
+
+          grep -q 'export async function GET' "$route"
+          grep -q 'export async function POST' "$route"
+          grep -q 'export async function PATCH' "$item"
+          grep -q 'export async function DELETE' "$item"
+
+          # All Habit operations must derive scope from the server-validated session.
+          grep -q 'workspaceId: session.workspaceId' "$route"
+          grep -q 'workspaceId: session.workspaceId' "$item"
+          grep -q 'data: { deletedAt: new Date(), isActive: false }' "$item"
+
+          # Production authentication must fail closed when Supabase identity is missing.
+          grep -q 'supabase.auth.getUser()' "$auth"
+          grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$auth"
+
+          echo "Static safety checks passed. These checks do not replace runtime or multi-user authorization tests."
