@@ -2,6 +2,20 @@ name: Check Supabase database connection
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - work/blueprint-phase-03
+    paths:
+      - '.github/workflows/supabase-connection-check.yml'
+      - 'prisma/schema.prisma'
+      - 'prisma/migrations/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/supabase-connection-check.yml'
+      - 'prisma/schema.prisma'
+      - 'prisma/migrations/**'
 
 permissions:
   contents: read
