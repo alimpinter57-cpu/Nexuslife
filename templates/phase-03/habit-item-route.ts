@@ -54,3 +54,31 @@ export async function PATCH(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Could not update habit." }, { status: 500 })
   }
 }
+
+
+/** Soft-delete a habit only inside the authenticated user's workspace. */
+export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    const session = await auth()
+    if (!session) return NextResponse.json({ error: "Authentication is not configured." }, { status: 401 })
+
+    const { habitId } = await context.params
+    const result = await prisma.habit.updateMany({
+      where: {
+        id: habitId,
+        workspaceId: session.workspaceId,
+        deletedAt: null,
+      },
+      data: { deletedAt: new Date(), isActive: false },
+    })
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: "Habit not found." }, { status: 404 })
+    }
+
+    return new NextResponse(null, { status: 204 })
+  } catch (error) {
+    console.error("Habit deletion API failed")
+    return NextResponse.json({ error: "Could not delete habit." }, { status: 500 })
+  }
+}
