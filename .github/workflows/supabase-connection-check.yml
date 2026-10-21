@@ -65,3 +65,32 @@ jobs:
       - name: Check database connection and migration status (read-only)
         if: steps.migrations.outputs.has_migrations == 'true'
         run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
+
+      - name: Audit Supabase RLS and grants (read-only)
+        if: steps.migrations.outputs.has_migrations == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          echo "Read-only security inventory for public schema:"
+          psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
+          BEGIN READ ONLY;
+          SELECT 'TABLE_RLS' AS section, tablename AS object_name,
+                 CASE WHEN rowsecurity THEN 'RLS_ENABLED' ELSE 'RLS_DISABLED' END AS detail
+          FROM pg_catalog.pg_tables
+          WHERE schemaname = 'public' AND tablename NOT LIKE 'pg_%'
+          ORDER BY tablename;
+          SELECT 'RLS_POLICY' AS section, tablename AS object_name,
+                 policyname || ' | roles=' || array_to_string(roles, ',') || ' | cmd=' || cmd AS detail
+          FROM pg_catalog.pg_policies
+          WHERE schemaname = 'public'
+          ORDER BY tablename, policyname;
+          SELECT 'BROWSER_GRANT' AS section, table_name AS object_name,
+                 grantee || ' | ' || privilege_type AS detail
+          FROM information_schema.role_table_grants
+          WHERE table_schema = 'public'
+            AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+          ORDER BY table_name, grantee, privilege_type;
+          ROLLBACK;
+          SQL
