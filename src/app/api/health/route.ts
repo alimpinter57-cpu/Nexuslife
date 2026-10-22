@@ -4,14 +4,10 @@ import { prisma } from "@/lib/prisma"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-/**
- * Minimal deployment health check. Never returns environment values or exception details.
- * HTTP 503 means the runtime is not ready for authenticated database-backed features.
- */
+/** Runtime readiness check; migrations remain a separate, deliberate release step. */
 export async function GET() {
   const missing = [
     ["DATABASE_URL", process.env.DATABASE_URL],
-    ["DIRECT_URL", process.env.DIRECT_URL],
     ["NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL],
     ["NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY],
     ["NEXT_PUBLIC_APP_URL", process.env.NEXT_PUBLIC_APP_URL],
