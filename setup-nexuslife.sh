@@ -186,7 +186,7 @@ export default function Home() {
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                   <h2 className="text-lg font-bold">Area kerja</h2><p className="mt-1 text-sm text-slate-500">Modul akan dibangun bertahap.</p>
                   <div className="mt-5 space-y-3">{[{ title: "Habit Tracker", desc: "Kebiasaan, log, dan progres", icon: Target }, { title: "Workout", desc: "Latihan, set, repetisi", icon: Dumbbell }, { title: "Notes", desc: "Catatan dan ide penting", icon: BookOpen }].map(({ title, desc, icon: Icon }) => <button key={title} onClick={() => setActiveTab(title === "Workout" ? "Workout" : title)} className="flex w-full items-center gap-3 rounded-xl border border-slate-100 p-4 text-left hover:border-indigo-200 hover:bg-slate-50"><span className="rounded-xl bg-indigo-50 p-3 text-indigo-600"><Icon size={19} /></span><span className="flex-1"><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
-                  <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> Habit Tracker kini dapat digunakan secara lokal. Login, database, dan sinkronisasi belum aktif.</div>
+                  <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> Habit Tracker kini dapat digunakan secara lokal. Setelah Supabase dikonfigurasi, login memakai sesi Supabase. Habit Tracker masih menyimpan data di browser dan belum tersinkron ke database.</div>
                 </section>
               </div>
             </>
