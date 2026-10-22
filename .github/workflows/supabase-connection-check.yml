@@ -9,6 +9,8 @@ on:
       - '.github/workflows/supabase-connection-check.yml'
       - 'prisma/schema.prisma'
       - 'prisma/migrations/**'
+      - 'templates/phase-03/**'
+      - '.github/workflows/phase-03-checks.yml'
   pull_request:
     branches:
       - main
@@ -16,6 +18,8 @@ on:
       - '.github/workflows/supabase-connection-check.yml'
       - 'prisma/schema.prisma'
       - 'prisma/migrations/**'
+      - 'templates/phase-03/**'
+      - '.github/workflows/phase-03-checks.yml'
 
 permissions:
   contents: read
