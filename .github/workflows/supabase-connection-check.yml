@@ -71,7 +71,9 @@ jobs:
         run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
 
       - name: Audit Supabase RLS and grants (read-only)
-        if: steps.migrations.outputs.has_migrations == 'true'
+        # Run the read-only security inventory even when migrate status fails,
+        # so a pending migration does not hide the current RLS/grant state.
+        if: always() && steps.migrations.outputs.has_migrations == 'true'
         shell: bash
         run: |
           set -euo pipefail
