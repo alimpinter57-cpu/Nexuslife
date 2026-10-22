@@ -24,7 +24,7 @@ REVOKE ALL PRIVILEGES ON TABLE
   public."WorkoutExercise",
   public."WorkoutPlan",
   public."WorkoutSession"
-FROM anon, authenticated;
+FROM PUBLIC, anon, authenticated;
 
 ALTER TABLE public."Backlink" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."Block" ENABLE ROW LEVEL SECURITY;
