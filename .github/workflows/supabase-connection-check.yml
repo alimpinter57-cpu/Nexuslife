@@ -96,5 +96,55 @@ jobs:
           WHERE table_schema = 'public'
             AND grantee IN ('anon', 'authenticated', 'PUBLIC')
           ORDER BY table_name, grantee, privilege_type;
+
+          -- Fail the audit if any expected app table lacks RLS.
+          DO $audit$
+          DECLARE
+            missing_rls text;
+            exposed_tables text;
+          BEGIN
+            SELECT string_agg(expected.table_name, ', ')
+              INTO missing_rls
+            FROM (VALUES
+              ('Backlink'), ('Block'), ('Document'), ('DocumentTag'),
+              ('ExerciseLog'), ('ExerciseSet'), ('Folder'), ('Habit'),
+              ('HabitLog'), ('MicroHabit'), ('Tag'), ('User'), ('Workspace'),
+              ('WorkoutExercise'), ('WorkoutPlan'), ('WorkoutSession')
+            ) AS expected(table_name)
+            LEFT JOIN pg_catalog.pg_class c
+              ON c.relname = expected.table_name AND c.relkind = 'r'
+            LEFT JOIN pg_catalog.pg_namespace n
+              ON n.oid = c.relnamespace AND n.nspname = 'public'
+            WHERE c.oid IS NULL OR n.oid IS NULL OR NOT c.relrowsecurity;
+
+            IF missing_rls IS NOT NULL THEN
+              RAISE EXCEPTION 'RLS is missing or table absent for: %', missing_rls;
+            END IF;
+
+            SELECT string_agg(DISTINCT c.relname || ' -> ' ||
+                CASE WHEN acl.grantee = 0 THEN 'PUBLIC' ELSE roles.rolname END, ', ')
+              INTO exposed_tables
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))
+            ) AS acl
+            LEFT JOIN pg_catalog.pg_roles roles ON roles.oid = acl.grantee
+            WHERE n.nspname = 'public'
+              AND c.relkind = 'r'
+              AND c.relname IN (
+                'Backlink', 'Block', 'Document', 'DocumentTag', 'ExerciseLog',
+                'ExerciseSet', 'Folder', 'Habit', 'HabitLog', 'MicroHabit',
+                'Tag', 'User', 'Workspace', 'WorkoutExercise', 'WorkoutPlan',
+                'WorkoutSession'
+              )
+              AND (acl.grantee = 0 OR roles.rolname IN ('anon', 'authenticated'));
+
+            IF exposed_tables IS NOT NULL THEN
+              RAISE EXCEPTION 'Browser/public table privileges remain: %', exposed_tables;
+            END IF;
+          END
+          $audit$;
+
           ROLLBACK;
           SQL
