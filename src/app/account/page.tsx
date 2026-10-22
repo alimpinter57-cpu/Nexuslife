@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { createSupabaseServerClient } from "@/lib/supabase-server"
+import { ensureNexusIdentity } from "@/lib/ensure-nexus-identity"
 import { prisma } from "@/lib/prisma"
 import AuthControls from "@/components/auth-controls"
 
@@ -32,21 +33,25 @@ export default async function AccountPage() {
   let profileLookupFailed = false
 
   try {
-    profile = await prisma.user.findFirst({
-      where: { supabaseAuthId: data.user.id, deletedAt: null },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        emailVerified: true,
-        createdAt: true,
-        workspaces: {
-          where: { deletedAt: null },
-          orderBy: { createdAt: "asc" },
-          select: { id: true, name: true, createdAt: true },
+    // Reconcile a verified Supabase identity to the internal profile on first account visit.
+    const mapped = await ensureNexusIdentity(data.user)
+    if (mapped) {
+      profile = await prisma.user.findFirst({
+        where: { id: mapped.user.id, deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          emailVerified: true,
+          createdAt: true,
+          workspaces: {
+            where: { deletedAt: null },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, name: true, createdAt: true },
+          },
         },
-      },
-    })
+      })
+    }
   } catch {
     profileLookupFailed = true
   }
@@ -106,7 +111,7 @@ export default async function AccountPage() {
               ) : (
                 <div className="mt-3 rounded-xl border border-amber-900/70 bg-amber-950/30 p-4">
                   <p className="font-medium text-amber-200">Profil belum terhubung ke database NexusLife</p>
-                  <p className="mt-2 text-sm leading-6 text-amber-100/70">Login Supabase berhasil, tetapi tidak ditemukan profil dengan ID autentikasi ini. Demi keamanan, jangan gunakan fitur data pribadi sampai pemetaan akun diperbaiki.</p>
+                  <p className="mt-2 text-sm leading-6 text-amber-100/70">Identitas Supabase belum dapat dipetakan dengan aman ke profil internal. Pastikan email terverifikasi dan konfigurasi database benar; jangan gunakan fitur data pribadi sampai pemetaan berhasil.</p>
                 </div>
               )}
             </article>

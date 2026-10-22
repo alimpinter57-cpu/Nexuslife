@@ -1,11 +1,13 @@
-import { prisma } from "@/lib/prisma"
-import { createSupabaseServerClient } from "@/lib/supabase-server"
+import "server-only"
 
-/** Validate the Supabase session on the server and resolve an internal workspace. */
+import { ensureNexusIdentity } from "@/lib/ensure-nexus-identity"
+import { createSupabaseServerClient } from "@/lib/supabase-server"
+import { prisma } from "@/lib/prisma"
+
+/** Verify the Supabase identity, then resolve its internal user and workspace. */
 export async function auth() {
   try {
-    // Optional local-only scope for isolated development/test databases.
-    // Never enable this bypass in production; production always requires a verified Supabase session.
+    // Isolated local-only test scope. Never enable this bypass in production.
     const localWorkspaceId = process.env.NEXUSLIFE_LOCAL_WORKSPACE_ID
     if (process.env.NODE_ENV !== "production" && localWorkspaceId) {
       const workspace = await prisma.workspace.findFirst({
@@ -18,24 +20,11 @@ export async function auth() {
 
     const supabase = await createSupabaseServerClient()
     const { data, error } = await supabase.auth.getUser()
-    if (error || !data.user || !data.user.email) return null
+    if (error || !data.user) return null
 
-    const user = await prisma.user.findFirst({
-      where: { supabaseAuthId: data.user.id, deletedAt: null },
-      select: { id: true, email: true },
-    })
-    if (!user) return null
-
-    const workspace = await prisma.workspace.findFirst({
-      where: { ownerId: user.id, deletedAt: null },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    })
-    if (!workspace) return null
-
-    return { user, workspaceId: workspace.id }
-  } catch (error) {
-    // Keep secrets and session tokens out of logs. Missing configuration fails closed.
+    return await ensureNexusIdentity(data.user)
+  } catch {
+    // Do not log tokens, database URLs, or provider error payloads.
     console.error("Authentication check failed; request denied.")
     return null
   }
