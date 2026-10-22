@@ -80,13 +80,28 @@ jobs:
           # Auth must guard rendered pages and expose an actual account/logout control.
           middleware="templates/phase-03/middleware.ts"
           auth_controls="templates/phase-03/auth-controls.tsx"
+          account_page="templates/phase-03/account-page.tsx"
+          login_page="templates/phase-03/login-page.tsx"
+          register_page="templates/phase-03/register-page.tsx"
           signout="templates/phase-03/auth-signout-route.ts"
           test -f "$middleware"
           test -f "$auth_controls"
+          test -f "$account_page"
+          test -f "$login_page"
+          test -f "$register_page"
           test -f "$signout"
           grep -q 'supabase.auth.getUser()' "$middleware"
           grep -q 'NextResponse.redirect(new URL("/login"' "$middleware"
           grep -q '/api/auth/signout' "$auth_controls"
+          grep -q 'href="/account"' "$auth_controls"
+          grep -q 'createSupabaseServerClient' "$account_page"
+          grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$account_page"
+          grep -q 'Profil belum terhubung ke database NexusLife' "$account_page"
+          grep -q 'signInWithPassword' "$login_page"
+          grep -q '/api/auth/signup' "$register_page"
+          grep -q 'src/app/account/page.tsx' setup-nexuslife.sh
+          grep -q 'src/app/(auth)/login/page.tsx' setup-nexuslife.sh
+          grep -q 'src/app/(auth)/register/page.tsx' setup-nexuslife.sh
           grep -q 'supabase.auth.signOut()' "$signout"
           grep -q 'templates/phase-03/middleware.ts" src/middleware.ts' setup-nexuslife.sh
           grep -q 'templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx' setup-nexuslife.sh
