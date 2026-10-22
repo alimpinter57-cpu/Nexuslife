@@ -28,7 +28,16 @@ export default function LoginPage() {
         setMessage("Email atau kata sandi tidak cocok, atau email belum diverifikasi.")
         return
       }
-      window.location.assign("/")
+
+      // Confirm the provider can validate the newly-created session before redirecting.
+      const { data: verified, error: verificationError } = await supabase.auth.getUser()
+      if (verificationError || !verified.user) {
+        setMessage("Login diterima, tetapi sesi belum berhasil diverifikasi. Periksa konfigurasi Supabase lalu coba lagi.")
+        return
+      }
+
+      // /account verifies the cookie-backed session on the server, exposing cookie/middleware issues.
+      window.location.assign("/account")
     } catch {
       setMessage("Login belum tersedia. Periksa konfigurasi Supabase dan coba lagi.")
     } finally {
