@@ -35,11 +35,19 @@ export async function middleware(request: NextRequest) {
   })
 
   // getUser validates the token with Supabase; do not trust getSession alone.
-  const { data, error } = await supabase.auth.getUser()
+  let hasValidUser = false
+  try {
+    const { data, error } = await supabase.auth.getUser()
+    hasValidUser = !error && Boolean(data.user)
+  } catch {
+    // Provider/network failures must never grant access to protected pages.
+    hasValidUser = false
+  }
+
   const pathname = request.nextUrl.pathname
   const isAuthPage = pathname === "/login" || pathname === "/register"
 
-  if ((error || !data.user) && !isAuthPage) {
+  if (!hasValidUser && !isAuthPage) {
     const redirect = NextResponse.redirect(new URL("/login", request.url))
     for (const cookie of response.cookies.getAll()) {
       redirect.cookies.set(cookie)
