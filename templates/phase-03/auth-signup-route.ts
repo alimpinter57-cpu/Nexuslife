@@ -17,6 +17,20 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Isi nama, email, dan kata sandi minimal 8 karakter." }, { status: 400 })
 
   const email = parsed.data.email.toLowerCase()
+  let emailRedirectTo: string
+  try {
+    const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (!configuredAppUrl) throw new Error("Missing app URL")
+    const appUrl = new URL(configuredAppUrl)
+    if (!["http:", "https:"].includes(appUrl.protocol) || appUrl.username || appUrl.password) {
+      throw new Error("Invalid app URL")
+    }
+    emailRedirectTo = new URL("/api/auth/callback", appUrl).toString()
+  } catch {
+    console.error("Signup redirect URL is not configured.")
+    return NextResponse.json({ error: "Konfigurasi alamat aplikasi belum benar. Hubungi pengelola." }, { status: 503 })
+  }
+
   let data: Awaited<ReturnType<Awaited<ReturnType<typeof createSupabaseServerClient>>["auth"]["signUp"]>>["data"]
   let error: Awaited<ReturnType<Awaited<ReturnType<typeof createSupabaseServerClient>>["auth"]["signUp"]>>["error"]
   try {
@@ -24,7 +38,7 @@ export async function POST(request: Request) {
     const result = await supabase.auth.signUp({
       email,
       password: parsed.data.password,
-      options: { data: { name: parsed.data.name } },
+      options: { data: { name: parsed.data.name }, emailRedirectTo },
     })
     data = result.data
     error = result.error
