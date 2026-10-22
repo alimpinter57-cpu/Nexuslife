@@ -11,7 +11,7 @@ const updateSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   isActive: z.boolean().optional(),
   todayCompleted: z.boolean().optional(),
-}).refine((value) => Object.keys(value).length > 0, { message: "No changes supplied." })
+}).strict().refine((value) => Object.keys(value).length > 0, { message: "No changes supplied." })
 
 function utcDay(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
@@ -22,9 +22,11 @@ type RouteContext = { params: Promise<{ habitId: string }> }
 export async function PATCH(request: Request, context: RouteContext) {
   try {
     const session = await auth()
-    if (!session) return NextResponse.json({ error: "Authentication is not configured." }, { status: 401 })
+    if (!session) return NextResponse.json({ error: "Authentication is required." }, { status: 401 })
     const { habitId } = await context.params
-    const parsed = updateSchema.safeParse(await request.json())
+    const body: unknown = await request.json().catch(() => undefined)
+    if (body === undefined) return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 })
+    const parsed = updateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: "Invalid update.", details: parsed.error.flatten() }, { status: 400 })
 
     const existing = await prisma.habit.findFirst({
@@ -49,18 +51,17 @@ export async function PATCH(request: Request, context: RouteContext) {
       return updated
     })
     return NextResponse.json({ habit: { ...habit, todayCompleted: todayCompleted ?? undefined } })
-  } catch (error) {
-    console.error("Habit update API failed", error)
+  } catch {
+    console.error("Habit update API failed.")
     return NextResponse.json({ error: "Could not update habit." }, { status: 500 })
   }
 }
-
 
 /** Soft-delete a habit only inside the authenticated user's workspace. */
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const session = await auth()
-    if (!session) return NextResponse.json({ error: "Authentication is not configured." }, { status: 401 })
+    if (!session) return NextResponse.json({ error: "Authentication is required." }, { status: 401 })
 
     const { habitId } = await context.params
     const result = await prisma.habit.updateMany({
@@ -77,8 +78,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
     }
 
     return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    console.error("Habit deletion API failed")
+  } catch {
+    console.error("Habit deletion API failed.")
     return NextResponse.json({ error: "Could not delete habit." }, { status: 500 })
   }
 }
