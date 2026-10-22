@@ -52,10 +52,12 @@ jobs:
           route="templates/phase-03/habit-route.ts"
           item="templates/phase-03/habit-item-route.ts"
           auth="templates/phase-03/src/lib/auth.ts"
+          signup="templates/phase-03/auth-signup-route.ts"
 
           test -f "$route"
           test -f "$item"
           test -f "$auth"
+          test -f "$signup"
 
           grep -q 'export async function GET' "$route"
           grep -q 'export async function POST' "$route"
@@ -70,5 +72,16 @@ jobs:
           # Production authentication must fail closed when Supabase identity is missing.
           grep -q 'supabase.auth.getUser()' "$auth"
           grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$auth"
+          grep -q 'signupSchema' "$signup"
+          grep -q '.strict()' "$signup"
 
-          echo "Static safety checks passed. These checks do not replace runtime or multi-user authorization tests."
+          # Malformed JSON must be rejected, and route errors must not log raw exceptions.
+          grep -q 'request.json().catch(() => undefined)' "$route"
+          grep -q 'request.json().catch(() => undefined)' "$item"
+          if grep -Eq 'console\.error\([^)]*,[[:space:]]*error\)' "$route" "$item"; then
+            echo "Raw exception logging found in Habit API route."
+            exit 1
+          fi
+
+          echo "Static backend safety checks passed."
+          echo "Runtime auth, live DB/RLS, and two-user isolation tests remain separate release gates."
