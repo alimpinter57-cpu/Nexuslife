@@ -58,6 +58,7 @@ cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'
 
 import { FormEvent, useEffect, useState } from "react"
 import { Activity, BookOpen, Check, ChevronRight, Dumbbell, LayoutDashboard, Plus, Sparkles, Target, Trash2 } from "lucide-react"
+import AuthControls from "@/components/auth-controls"
 
 type Habit = { id: string; name: string; detail: string; done: boolean }
 const STORAGE_KEY = "nexuslife-habits-v1"
@@ -149,7 +150,7 @@ export default function Home() {
         <section className="min-w-0 flex-1 p-5 sm:p-8 lg:p-10">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div><p className="text-sm font-medium text-indigo-600">PERSONAL OPERATING SYSTEM</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{activeTab === "Overview" ? "Ringkasan hari ini" : activeTab}</h1><p className="mt-2 text-sm text-slate-500">Bangun progres yang terlihat, satu hari dalam satu waktu.</p></div>
-            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode lokal · {storageReady ? "Penyimpanan browser aktif" : "Memuat data…"}</div>
+            <div className="flex flex-wrap items-center gap-3"><AuthControls /><div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode lokal · {storageReady ? "Penyimpanan browser aktif" : "Memuat data…"}</div></div>
           </header>
 
           {activeTab === "Habit Tracker" ? (
@@ -599,6 +600,8 @@ cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase-browser.ts
 cp "$SCRIPT_DIR/templates/phase-03/middleware.ts" src/middleware.ts
+mkdir -p src/components
+cp "$SCRIPT_DIR/templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx
 cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx" 'src/app/(auth)/login/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/register-page.tsx" 'src/app/(auth)/register/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
