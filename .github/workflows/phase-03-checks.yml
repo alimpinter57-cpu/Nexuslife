@@ -87,7 +87,7 @@ jobs:
           rls_migration="prisma/migrations/0004_server_only_rls_and_grants/migration.sql"
           test -f "$rls_migration"
           grep -q 'REVOKE ALL PRIVILEGES ON TABLE' "$rls_migration"
-          grep -q 'FROM anon, authenticated' "$rls_migration"
+          grep -q 'FROM PUBLIC, anon, authenticated' "$rls_migration"
           grep -q 'ENABLE ROW LEVEL SECURITY' "$rls_migration"
           if grep -qi 'CREATE POLICY' "$rls_migration"; then
             echo "Unexpected browser-facing RLS policy: review the server-only access design."
