@@ -75,6 +75,21 @@ jobs:
           grep -q 'signupSchema' "$signup"
           grep -q '.strict()' "$signup"
 
+          # Auth must guard rendered pages and expose an actual account/logout control.
+          middleware="templates/phase-03/middleware.ts"
+          auth_controls="templates/phase-03/auth-controls.tsx"
+          signout="templates/phase-03/auth-signout-route.ts"
+          test -f "$middleware"
+          test -f "$auth_controls"
+          test -f "$signout"
+          grep -q 'supabase.auth.getUser()' "$middleware"
+          grep -q 'NextResponse.redirect(new URL("/login"' "$middleware"
+          grep -q '/api/auth/signout' "$auth_controls"
+          grep -q 'supabase.auth.signOut()' "$signout"
+          grep -q 'templates/phase-03/middleware.ts" src/middleware.ts' setup-nexuslife.sh
+          grep -q 'templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx' setup-nexuslife.sh
+          grep -q '<AuthControls />' setup-nexuslife.sh
+
           # Malformed JSON must be rejected, and route errors must not log raw exceptions.
           grep -q 'request.json().catch(() => undefined)' "$route"
           grep -q 'request.json().catch(() => undefined)' "$item"
