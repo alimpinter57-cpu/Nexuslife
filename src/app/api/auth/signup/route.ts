@@ -19,16 +19,27 @@ export async function POST(request: Request) {
   const email = parsed.data.email.toLowerCase()
   let emailRedirectTo: string
   try {
-    const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (!configuredAppUrl) throw new Error("Missing app URL")
+    // Prefer the explicitly configured canonical origin. On Vercel Preview, use
+    // VERCEL_URL so signup works even when NEXT_PUBLIC_APP_URL was not configured.
+    // Local development falls back to the incoming origin.
+    const configuredAppUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : new URL(request.url).origin)
     const appUrl = new URL(configuredAppUrl)
-    if (!["http:", "https:"].includes(appUrl.protocol) || appUrl.username || appUrl.password) {
+    if (
+      !["http:", "https:"].includes(appUrl.protocol) ||
+      appUrl.username ||
+      appUrl.password ||
+      appUrl.pathname !== "/" ||
+      appUrl.search ||
+      appUrl.hash
+    ) {
       throw new Error("Invalid app URL")
     }
     emailRedirectTo = new URL("/api/auth/callback", appUrl).toString()
   } catch {
-    console.error("Signup redirect URL is not configured.")
-    return NextResponse.json({ error: "Konfigurasi alamat aplikasi belum benar. Hubungi pengelola." }, { status: 503 })
+    console.error("Signup redirect origin could not be resolved.")
+    return NextResponse.json({ error: "Alamat aplikasi belum dapat ditentukan. Coba lagi nanti." }, { status: 503 })
   }
 
   let data: Awaited<ReturnType<Awaited<ReturnType<typeof createSupabaseServerClient>>["auth"]["signUp"]>>["data"]
