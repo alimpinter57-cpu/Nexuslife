@@ -50,14 +50,16 @@ export async function POST(request: Request) {
     // Avoid exposing provider internals or whether an email already exists.
     return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
   }
-  if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+  const authUser = data.user
+
+  if (Array.isArray(authUser.identities) && authUser.identities.length === 0) {
     // Supabase may return an obfuscated user for an existing email; never provision it.
     return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
   }
 
   try {
     await prisma.$transaction(async (tx) => {
-      const existingByAuthId = await tx.user.findUnique({ where: { supabaseAuthId: data.user.id }, select: { id: true } })
+      const existingByAuthId = await tx.user.findUnique({ where: { supabaseAuthId: authUser.id }, select: { id: true } })
       if (existingByAuthId) return
       const existingByEmail = await tx.user.findUnique({ where: { email }, select: { id: true } })
       if (existingByEmail) {
@@ -67,11 +69,11 @@ export async function POST(request: Request) {
       const user = await tx.user.create({
         data: {
           email,
-          supabaseAuthId: data.user.id,
+          supabaseAuthId: authUser.id,
           passwordHash: null,
           name: parsed.data.name,
-          emailVerified: Boolean(data.user.email_confirmed_at),
-          workspaces: { create: { name: "Workspace pribadi", slug: `personal-${data.user.id}` } },
+          emailVerified: Boolean(authUser.email_confirmed_at),
+          workspaces: { create: { name: "Workspace pribadi", slug: `personal-${authUser.id}` } },
         },
         select: { id: true },
       })
