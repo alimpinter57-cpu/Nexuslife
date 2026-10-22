@@ -74,6 +74,8 @@ jobs:
           grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$auth"
           grep -q 'signupSchema' "$signup"
           grep -q '.strict()' "$signup"
+          grep -q 'emailRedirectTo' "$signup"
+          grep -q 'NEXT_PUBLIC_APP_URL' "$signup"
 
           # Auth must guard rendered pages and expose an actual account/logout control.
           middleware="templates/phase-03/middleware.ts"
