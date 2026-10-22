@@ -149,22 +149,15 @@ jobs:
               encoding="utf-8",
           )
 
-          # Compile the actual auth UI files as part of the generated-app smoke test.
+          # Compile the real login and registration pages alongside the dashboard.
           templates = Path("templates/phase-03")
-          (root / "src/components").mkdir(parents=True)
-          (root / "src/lib").mkdir(parents=True)
-          (root / "src/app/(auth)/login").mkdir(parents=True)
-          (root / "src/app/(auth)/register").mkdir(parents=True)
+          (root / "src/app/(auth)/login").mkdir(parents=True, exist_ok=True)
+          (root / "src/app/(auth)/register").mkdir(parents=True, exist_ok=True)
           for source, target in [
-              ("auth-controls.tsx", "src/components/auth-controls.tsx"),
               ("login-page.tsx", "src/app/(auth)/login/page.tsx"),
               ("register-page.tsx", "src/app/(auth)/register/page.tsx"),
           ]:
               (root / target).write_text((templates / source).read_text(encoding="utf-8"), encoding="utf-8")
-          (root / "src/lib/supabase-browser.ts").write_text(
-              (templates / "src/lib/supabase-browser.ts").read_text(encoding="utf-8"),
-              encoding="utf-8",
-          )
 
           (root / "package.json").write_text(json.dumps({
               "name": "nexuslife-dashboard-ci",
@@ -172,7 +165,6 @@ jobs:
               "private": True,
               "scripts": {"build": "next build"},
               "dependencies": {
-                  "@supabase/ssr": "^0.6.1",
                   "@supabase/ssr": "^0.7.0",
                   "lucide-react": "^0.468.0",
                   "next": "15.5.28",
