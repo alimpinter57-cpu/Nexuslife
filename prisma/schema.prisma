@@ -1,0 +1,370 @@
+// ============================================================================
+// NEXUSLIFE DATABASE SCHEMA
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  FREE
+  PRO
+  ADMIN
+}
+
+enum HabitFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum WorkoutSplitType {
+  PUSH_PULL_LEGS
+  UPPER_LOWER
+  FULL_BODY
+  CUSTOM
+  CARDIO
+  YOGA
+  REST
+}
+
+enum BlockType {
+  PARAGRAPH
+  HEADING_1
+  HEADING_2
+  HEADING_3
+  CHECKLIST
+  CODE
+  CALLOUT
+  TOGGLE
+  TABLE
+  DIVIDER
+  IMAGE
+  EMBED
+  WIDGET
+}
+
+enum DocumentVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+// ============================================================================
+// USER & AUTH
+// ============================================================================
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  // Nullable until an existing account is explicitly linked to Supabase Auth.
+  supabaseAuthId String?   @unique
+  // Legacy password auth only; Supabase Auth users do not store local passwords.
+  passwordHash  String?
+  name          String?
+  avatar        String?
+  role          UserRole  @default(FREE)
+  emailVerified Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  workspaces    Workspace[]
+  
+  @@index([email])
+}
+
+// ============================================================================
+// WORKSPACE
+// ============================================================================
+
+model Workspace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  icon        String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  habits      Habit[]
+  workoutPlans WorkoutPlan[]
+  folders     Folder[]
+  documents   Document[]
+  tags        Tag[]
+
+  @@index([ownerId])
+}
+
+// ============================================================================
+// HABIT MODULE
+// ============================================================================
+
+model Habit {
+  id              String          @id @default(uuid())
+  workspaceId     String
+  name            String
+  description     String?
+  icon            String?
+  color           String?
+  frequency       HabitFrequency  @default(DAILY)
+  customDays      Int[]          @default([])
+  targetPerPeriod Int             @default(1)
+  reminderTime    DateTime?
+  reminderEnabled Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  startDate       DateTime        @default(now())
+  endDate         DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  logs            HabitLog[]
+  microHabits     MicroHabit[]
+
+  @@index([workspaceId])
+  @@index([isActive, deletedAt])
+}
+
+model HabitLog {
+  id          String   @id @default(uuid())
+  habitId     String
+  date        DateTime
+  isCompleted Boolean  @default(false)
+  notes       String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+  @@index([habitId])
+  @@index([date])
+}
+
+model MicroHabit {
+  id          String   @id @default(uuid())
+  habitId     String
+  name        String
+  order       Int      @default(0)
+  isRequired  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@index([habitId])
+}
+
+// ============================================================================
+// WORKOUT MODULE
+// ============================================================================
+
+model WorkoutPlan {
+  id            String           @id @default(uuid())
+  workspaceId   String
+  name          String
+  description   String?
+  splitType     WorkoutSplitType
+  isActive      Boolean          @default(true)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessions      WorkoutSession[]
+  exercises     WorkoutExercise[]
+
+  @@index([workspaceId])
+}
+
+model WorkoutExercise {
+  id              String   @id @default(uuid())
+  workoutPlanId   String
+  name            String
+  category        String
+  muscleGroup     String?
+  equipment       String?
+  createdAt       DateTime @default(now())
+
+  workoutPlan     WorkoutPlan     @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exerciseLogs    ExerciseLog[]
+
+  @@index([workoutPlanId])
+}
+
+model WorkoutSession {
+  id              String   @id @default(uuid())
+  workoutPlanId   String
+  date            DateTime
+  duration        Int?
+  notes           String?
+  mood            Int?
+  energyLevel     Int?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  workoutPlan     WorkoutPlan     @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  exerciseLogs    ExerciseLog[]
+
+  @@unique([workoutPlanId, date])
+  @@index([workoutPlanId])
+  @@index([date])
+}
+
+model ExerciseLog {
+  id              String   @id @default(uuid())
+  workoutSessionId String
+  exerciseId      String
+  order           Int      @default(0)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  workoutSession  WorkoutSession  @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
+  exercise        WorkoutExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  sets            ExerciseSet[]
+
+  @@index([workoutSessionId])
+  @@index([exerciseId])
+}
+
+model ExerciseSet {
+  id              String   @id @default(uuid())
+  exerciseLogId   String
+  setNumber       Int
+  reps            Int
+  weight          Float?
+  weightUnit      String   @default("kg")
+  duration        Int?
+  rpe             Int?
+  isWarmup        Boolean  @default(false)
+  isFailure       Boolean  @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  exerciseLog     ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseLogId])
+}
+
+// ============================================================================
+// NOTES MODULE
+// ============================================================================
+
+model Folder {
+  id            String   @id @default(uuid())
+  workspaceId   String
+  parentId      String?
+  name          String
+  icon          String?
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent        Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children      Folder[]  @relation("FolderHierarchy")
+  documents     Document[]
+
+  @@index([workspaceId])
+  @@index([parentId])
+}
+
+model Document {
+  id              String              @id @default(uuid())
+  workspaceId     String
+  folderId        String?
+  title           String
+  icon            String?
+  coverImage      String?
+  visibility      DocumentVisibility  @default(PRIVATE)
+  isTemplate      Boolean             @default(false)
+  wordCount       Int                 @default(0)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folder          Folder?             @relation(fields: [folderId], references: [id])
+  blocks          Block[]
+  tags            DocumentTag[]
+  backlinksFrom   Backlink[]          @relation("BacklinkSource")
+  backlinksTo     Backlink[]          @relation("BacklinkTarget")
+
+  @@index([workspaceId])
+  @@index([folderId])
+}
+
+model Block {
+  id          String    @id @default(uuid())
+  documentId  String
+  type        BlockType
+  content     Json
+  order       Int       @default(0)
+  parentId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent      Block?    @relation("BlockHierarchy", fields: [parentId], references: [id])
+  children    Block[]   @relation("BlockHierarchy")
+
+  @@index([documentId])
+  @@index([order])
+}
+
+model Tag {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  color       String?
+  parentId    String?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  documents   DocumentTag[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model DocumentTag {
+  id          String   @id @default(uuid())
+  documentId  String
+  tagId       String
+  createdAt   DateTime @default(now())
+
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tagId])
+}
+
+model Backlink {
+  id            String   @id @default(uuid())
+  sourceDocId   String
+  targetDocId   String
+  context       String?
+  createdAt     DateTime @default(now())
+
+  sourceDoc     Document @relation("BacklinkSource", fields: [sourceDocId], references: [id], onDelete: Cascade)
+  targetDoc     Document @relation("BacklinkTarget", fields: [targetDocId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceDocId, targetDocId])
+}
