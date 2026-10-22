@@ -602,6 +602,8 @@ cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase
 cp "$SCRIPT_DIR/templates/phase-03/middleware.ts" src/middleware.ts
 mkdir -p src/components
 cp "$SCRIPT_DIR/templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx
+mkdir -p src/app/account
+cp "$SCRIPT_DIR/templates/phase-03/account-page.tsx" src/app/account/page.tsx
 cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx" 'src/app/(auth)/login/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/register-page.tsx" 'src/app/(auth)/register/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
