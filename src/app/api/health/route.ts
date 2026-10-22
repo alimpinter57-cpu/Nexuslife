@@ -21,7 +21,7 @@ export async function GET() {
   }
 
   try {
-    await prisma.$queryRaw\`SELECT 1\`
+    await prisma.$queryRawUnsafe("SELECT 1")
     return NextResponse.json(
       { status: "ok", checks: { configuration: "ok", database: "ok" } },
       { headers: { "Cache-Control": "no-store" } },
