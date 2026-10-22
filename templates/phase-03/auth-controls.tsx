@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser"
 
@@ -56,6 +57,9 @@ export default function AuthControls() {
         <p className="max-w-56 truncate text-sm font-medium text-slate-700">{email || "Akun NexusLife"}</p>
         {message && <p role="status" className="text-xs text-rose-600">{message}</p>}
       </div>
+      <Link href="/account" className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+        Akun saya
+      </Link>
       <button type="button" onClick={signOut} disabled={busy || !email} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
         {busy ? "Keluar…" : "Logout"}
       </button>
