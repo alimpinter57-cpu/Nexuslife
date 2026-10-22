@@ -598,6 +598,7 @@ cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase-browser.ts
+cp "$SCRIPT_DIR/templates/phase-03/middleware.ts" src/middleware.ts
 cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx" 'src/app/(auth)/login/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/register-page.tsx" 'src/app/(auth)/register/page.tsx'
 cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
