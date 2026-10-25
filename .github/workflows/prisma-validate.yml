@@ -1,0 +1,35 @@
+name: Validate Prisma schema
+
+on:
+  push:
+    branches:
+      - work/blueprint-phase-03
+    paths:
+      - "prisma/schema.prisma"
+      - ".github/workflows/prisma-validate.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "prisma/schema.prisma"
+      - ".github/workflows/prisma-validate.yml"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values are sufficient for schema validation; this job never connects to a database.
+      DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+      DIRECT_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Prisma CLI
+        run: npm install --no-save prisma@6
+      - name: Validate schema
+        run: npx prisma validate --schema prisma/schema.prisma

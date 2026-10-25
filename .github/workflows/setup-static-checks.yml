@@ -6,6 +6,8 @@ on:
       - main
       - stage-00/safe-setup
       - stage-01/app-shell-v2
+      - work/blueprint-phase-00
+      - work/blueprint-phase-03
   pull_request:
     branches:
       - main
@@ -85,6 +87,14 @@ jobs:
           assert "cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'" in script, "Dashboard layout heredoc missing"
           assert "lucide-react" in script, "Dashboard icon dependency missing"
           assert "NEXUS_PAGE_EOF" in script and "NEXUS_LAYOUT_EOF" in script, "Dashboard heredoc terminator missing"
+          assert 'cp "$SCRIPT_DIR/prisma/schema.prisma" prisma/schema.prisma' in script, "Canonical Prisma schema copy missing"
+          assert 'templates/phase-03/habit-route.ts' in script, "Habit API template copy missing"
+          assert 'templates/phase-03/habit-item-route.ts' in script, "Habit item API template copy missing"
+          assert "mkdir -p 'src/app/(auth)/login' 'src/app/(auth)/register'" in script, "Login/register route directories must be created before copying auth pages"
+          assert script.index("mkdir -p 'src/app/(auth)/login' 'src/app/(auth)/register'") < script.index('cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx"'), "Auth route directories must be created before copying login page"
+          assert 'NEXUSLIFE_LOCAL_WORKSPACE_ID' in Path("templates/phase-03/src/lib/auth.ts").read_text(), "Fail-closed local auth scope missing"
+          assert 'workspaceId: session.workspaceId' in Path("templates/phase-03/habit-route.ts").read_text(), "Habit API workspace scope missing"
+          assert 'habitId_date' in Path("templates/phase-03/habit-item-route.ts").read_text(), "Daily completion uniqueness upsert missing"
 
           print(f"PASS: bash syntax, safety guards, {opens} heredocs, README code fences")
           PY
@@ -124,16 +134,38 @@ jobs:
               extract("cat > src/app/layout.tsx << 'NEXUS_LAYOUT_EOF'", "NEXUS_LAYOUT_EOF"),
               encoding="utf-8",
           )
+          (root / "src/components").mkdir(parents=True, exist_ok=True)
+          (root / "src/lib").mkdir(parents=True, exist_ok=True)
+          (root / "src/components/auth-controls.tsx").write_text(
+              Path("templates/phase-03/auth-controls.tsx").read_text(encoding="utf-8"),
+              encoding="utf-8",
+          )
+          (root / "src/lib/supabase-browser.ts").write_text(
+              Path("templates/phase-03/src/lib/supabase-browser.ts").read_text(encoding="utf-8"),
+              encoding="utf-8",
+          )
           (root / "src/app/globals.css").write_text(
               "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n",
               encoding="utf-8",
           )
+
+          # Compile the real login and registration pages alongside the dashboard.
+          templates = Path("templates/phase-03")
+          (root / "src/app/(auth)/login").mkdir(parents=True, exist_ok=True)
+          (root / "src/app/(auth)/register").mkdir(parents=True, exist_ok=True)
+          for source, target in [
+              ("login-page.tsx", "src/app/(auth)/login/page.tsx"),
+              ("register-page.tsx", "src/app/(auth)/register/page.tsx"),
+          ]:
+              (root / target).write_text((templates / source).read_text(encoding="utf-8"), encoding="utf-8")
+
           (root / "package.json").write_text(json.dumps({
               "name": "nexuslife-dashboard-ci",
               "version": "1.0.0",
               "private": True,
               "scripts": {"build": "next build"},
               "dependencies": {
+                  "@supabase/ssr": "^0.7.0",
                   "lucide-react": "^0.468.0",
                   "next": "15.5.28",
                   "react": "19.1.10",
@@ -188,3 +220,25 @@ jobs:
       - name: Build dashboard with Next.js
         working-directory: /tmp/nexuslife-dashboard
         run: npm run build
+
+  prisma-schema-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Validate canonical Prisma schema
+        env:
+          DATABASE_URL: postgresql://nexuslife_ci:ci_password@127.0.0.1:5432/nexuslife?schema=public
+          DIRECT_URL: postgresql://nexuslife_ci:ci_password@127.0.0.1:5432/nexuslife?schema=public
+        run: npx --yes prisma@6 validate --schema prisma/schema.prisma
+
+      - name: Ensure setup script uses the canonical schema
+        run: |
+          grep -Fq 'cp "$SCRIPT_DIR/prisma/schema.prisma" prisma/schema.prisma' setup-nexuslife.sh
+          grep -Fq 'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"' setup-nexuslife.sh

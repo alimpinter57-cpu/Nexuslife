@@ -7,6 +7,9 @@
 
 set -e  # Exit on error
 
+# Resolve repository path so templates work from any current directory.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 # Warna untuk output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -55,6 +58,7 @@ cat > src/app/page.tsx << 'NEXUS_PAGE_EOF'
 
 import { FormEvent, useEffect, useState } from "react"
 import { Activity, BookOpen, Check, ChevronRight, Dumbbell, LayoutDashboard, Plus, Sparkles, Target, Trash2 } from "lucide-react"
+import AuthControls from "@/components/auth-controls"
 
 type Habit = { id: string; name: string; detail: string; done: boolean }
 const STORAGE_KEY = "nexuslife-habits-v1"
@@ -146,7 +150,7 @@ export default function Home() {
         <section className="min-w-0 flex-1 p-5 sm:p-8 lg:p-10">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div><p className="text-sm font-medium text-indigo-600">PERSONAL OPERATING SYSTEM</p><h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">{activeTab === "Overview" ? "Ringkasan hari ini" : activeTab}</h1><p className="mt-2 text-sm text-slate-500">Bangun progres yang terlihat, satu hari dalam satu waktu.</p></div>
-            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode lokal · {storageReady ? "Penyimpanan browser aktif" : "Memuat data…"}</div>
+            <div className="flex flex-wrap items-center gap-3"><AuthControls /><div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">Mode lokal · {storageReady ? "Penyimpanan browser aktif" : "Memuat data…"}</div></div>
           </header>
 
           {activeTab === "Habit Tracker" ? (
@@ -182,7 +186,7 @@ export default function Home() {
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
                   <h2 className="text-lg font-bold">Area kerja</h2><p className="mt-1 text-sm text-slate-500">Modul akan dibangun bertahap.</p>
                   <div className="mt-5 space-y-3">{[{ title: "Habit Tracker", desc: "Kebiasaan, log, dan progres", icon: Target }, { title: "Workout", desc: "Latihan, set, repetisi", icon: Dumbbell }, { title: "Notes", desc: "Catatan dan ide penting", icon: BookOpen }].map(({ title, desc, icon: Icon }) => <button key={title} onClick={() => setActiveTab(title === "Workout" ? "Workout" : title)} className="flex w-full items-center gap-3 rounded-xl border border-slate-100 p-4 text-left hover:border-indigo-200 hover:bg-slate-50"><span className="rounded-xl bg-indigo-50 p-3 text-indigo-600"><Icon size={19} /></span><span className="flex-1"><span className="block text-sm font-semibold">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span></span><ChevronRight size={17} className="text-slate-300" /></button>)}</div>
-                  <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> Habit Tracker kini dapat digunakan secara lokal. Login, database, dan sinkronisasi belum aktif.</div>
+                  <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Catatan:</strong> Habit Tracker kini dapat digunakan secara lokal. Setelah Supabase dikonfigurasi, login memakai sesi Supabase. Habit Tracker masih menyimpan data di browser dan belum tersinkron ke database.</div>
                 </section>
               </div>
             </>
@@ -225,6 +229,9 @@ print_step "Step 2/8: Menginstall dependencies..."
 
 npm install \
     @prisma/client@6 \
+    @supabase/ssr \
+    @supabase/supabase-js \
+    server-only \
     zod \
     react-hook-form \
     @hookform/resolvers \
@@ -576,376 +583,39 @@ print_success "File konfigurasi berhasil dibuat!"
 # ============================================================================
 print_step "Step 8/8: Membuat Prisma Schema..."
 
-cat > prisma/schema.prisma << 'EOF'
-// ============================================================================
-// NEXUSLIFE DATABASE SCHEMA
-// ============================================================================
+cp "$SCRIPT_DIR/prisma/schema.prisma" prisma/schema.prisma
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// ============================================================================
-// ENUMS
-// ============================================================================
-
-enum UserRole {
-  FREE
-  PRO
-  ADMIN
-}
-
-enum HabitFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  CUSTOM
-}
-
-enum WorkoutSplitType {
-  PUSH_PULL_LEGS
-  UPPER_LOWER
-  FULL_BODY
-  CUSTOM
-  CARDIO
-  YOGA
-  REST
-}
-
-enum BlockType {
-  PARAGRAPH
-  HEADING_1
-  HEADING_2
-  HEADING_3
-  CHECKLIST
-  CODE
-  CALLOUT
-  TOGGLE
-  TABLE
-  DIVIDER
-  IMAGE
-  EMBED
-  WIDGET
-}
-
-enum DocumentVisibility {
-  PRIVATE
-  SHARED
-  PUBLIC
-}
-
-// ============================================================================
-// USER & AUTH
-// ============================================================================
-
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String
-  name          String?
-  avatar        String?
-  role          UserRole  @default(FREE)
-  emailVerified Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-
-  workspaces    Workspace[]
-  
-  @@index([email])
-}
-
-// ============================================================================
-// WORKSPACE
-// ============================================================================
-
-model Workspace {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique
-  icon        String?
-  ownerId     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
-
-  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  habits      Habit[]
-  workoutPlans WorkoutPlan[]
-  folders     Folder[]
-  documents   Document[]
-  tags        Tag[]
-
-  @@index([ownerId])
-}
-
-// ============================================================================
-// HABIT MODULE
-// ============================================================================
-
-model Habit {
-  id              String          @id @default(uuid())
-  workspaceId     String
-  name            String
-  description     String?
-  icon            String?
-  color           String?
-  frequency       HabitFrequency  @default(DAILY)
-  customDays      Int[]          @default([])
-  targetPerPeriod Int             @default(1)
-  reminderTime    DateTime?
-  reminderEnabled Boolean         @default(false)
-  isActive        Boolean         @default(true)
-  startDate       DateTime        @default(now())
-  endDate         DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?
-
-  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  logs            HabitLog[]
-  microHabits     MicroHabit[]
-
-  @@index([workspaceId])
-  @@index([isActive, deletedAt])
-}
-
-model HabitLog {
-  id          String   @id @default(uuid())
-  habitId     String
-  date        DateTime
-  isCompleted Boolean  @default(false)
-  notes       String?
-  completedAt DateTime?
-  createdAt   DateTime @default(now())
-
-  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
-
-  @@unique([habitId, date])
-  @@index([habitId])
-  @@index([date])
-}
-
-model MicroHabit {
-  id          String   @id @default(uuid())
-  habitId     String
-  name        String
-  order       Int      @default(0)
-  isRequired  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  habit       Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
-
-  @@index([habitId])
-}
-
-// ============================================================================
-// WORKOUT MODULE
-// ============================================================================
-
-model WorkoutPlan {
-  id            String           @id @default(uuid())
-  workspaceId   String
-  name          String
-  description   String?
-  splitType     WorkoutSplitType
-  isActive      Boolean          @default(true)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  deletedAt     DateTime?
-
-  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  sessions      WorkoutSession[]
-  exercises     WorkoutExercise[]
-
-  @@index([workspaceId])
-}
-
-model WorkoutExercise {
-  id              String   @id @default(uuid())
-  workoutPlanId   String
-  name            String
-  category        String
-  muscleGroup     String?
-  equipment       String?
-  createdAt       DateTime @default(now())
-
-  workoutPlan     WorkoutPlan     @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
-  exerciseLogs    ExerciseLog[]
-
-  @@index([workoutPlanId])
-}
-
-model WorkoutSession {
-  id              String   @id @default(uuid())
-  workoutPlanId   String
-  date            DateTime
-  duration        Int?
-  notes           String?
-  mood            Int?
-  energyLevel     Int?
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  deletedAt       DateTime?
-
-  workoutPlan     WorkoutPlan     @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
-  exerciseLogs    ExerciseLog[]
-
-  @@unique([workoutPlanId, date])
-  @@index([workoutPlanId])
-  @@index([date])
-}
-
-model ExerciseLog {
-  id              String   @id @default(uuid())
-  workoutSessionId String
-  exerciseId      String
-  order           Int      @default(0)
-  notes           String?
-  createdAt       DateTime @default(now())
-
-  workoutSession  WorkoutSession  @relation(fields: [workoutSessionId], references: [id], onDelete: Cascade)
-  exercise        WorkoutExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  sets            ExerciseSet[]
-
-  @@index([workoutSessionId])
-  @@index([exerciseId])
-}
-
-model ExerciseSet {
-  id              String   @id @default(uuid())
-  exerciseLogId   String
-  setNumber       Int
-  reps            Int
-  weight          Float?
-  weightUnit      String   @default("kg")
-  duration        Int?
-  rpe             Int?
-  isWarmup        Boolean  @default(false)
-  isFailure       Boolean  @default(false)
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-
-  exerciseLog     ExerciseLog @relation(fields: [exerciseLogId], references: [id], onDelete: Cascade)
-
-  @@index([exerciseLogId])
-}
-
-// ============================================================================
-// NOTES MODULE
-// ============================================================================
-
-model Folder {
-  id            String   @id @default(uuid())
-  workspaceId   String
-  parentId      String?
-  name          String
-  icon          String?
-  order         Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-
-  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parent        Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children      Folder[]  @relation("FolderHierarchy")
-  documents     Document[]
-
-  @@index([workspaceId])
-  @@index([parentId])
-}
-
-model Document {
-  id              String              @id @default(uuid())
-  workspaceId     String
-  folderId        String?
-  title           String
-  icon            String?
-  coverImage      String?
-  visibility      DocumentVisibility  @default(PRIVATE)
-  isTemplate      Boolean             @default(false)
-  wordCount       Int                 @default(0)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  deletedAt       DateTime?
-
-  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  folder          Folder?             @relation(fields: [folderId], references: [id])
-  blocks          Block[]
-  tags            DocumentTag[]
-  backlinksFrom   Backlink[]          @relation("BacklinkSource")
-  backlinksTo     Backlink[]          @relation("BacklinkTarget")
-
-  @@index([workspaceId])
-  @@index([folderId])
-}
-
-model Block {
-  id          String    @id @default(uuid())
-  documentId  String
-  type        BlockType
-  content     Json
-  order       Int       @default(0)
-  parentId    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  parent      Block?    @relation("BlockHierarchy", fields: [parentId], references: [id])
-  children    Block[]   @relation("BlockHierarchy")
-
-  @@index([documentId])
-  @@index([order])
-}
-
-model Tag {
-  id          String   @id @default(uuid())
-  workspaceId String
-  name        String
-  color       String?
-  parentId    String?
-  createdAt   DateTime @default(now())
-
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  documents   DocumentTag[]
-
-  @@unique([workspaceId, name])
-  @@index([workspaceId])
-}
-
-model DocumentTag {
-  id          String   @id @default(uuid())
-  documentId  String
-  tagId       String
-  createdAt   DateTime @default(now())
-
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([documentId, tagId])
-}
-
-model Backlink {
-  id            String   @id @default(uuid())
-  sourceDocId   String
-  targetDocId   String
-  context       String?
-  createdAt     DateTime @default(now())
-
-  sourceDoc     Document @relation("BacklinkSource", fields: [sourceDocId], references: [id], onDelete: Cascade)
-  targetDoc     Document @relation("BacklinkTarget", fields: [targetDocId], references: [id], onDelete: Cascade)
-
-  @@unique([sourceDocId, targetDocId])
-}
-EOF
+if ! grep -q '^datasource db' prisma/schema.prisma; then
+    print_error "Schema Prisma kanonis tidak ditemukan atau tidak valid."
+    exit 1
+fi
 
 print_success "Prisma Schema berhasil dibuat!"
+
+# Install the database-backed Habit API templates after the base scaffold exists.
+print_step "Bonus: Menambahkan API Habit berbasis PostgreSQL..."
+mkdir -p src/app/api/habits/\[habitId\] src/lib
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase-browser.ts
+cp "$SCRIPT_DIR/templates/phase-03/middleware.ts" src/middleware.ts
+mkdir -p src/components
+cp "$SCRIPT_DIR/templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx
+mkdir -p src/app/account
+cp "$SCRIPT_DIR/templates/phase-03/account-page.tsx" src/app/account/page.tsx
+# Create the route-group directories explicitly; cp does not create parent folders.
+mkdir -p 'src/app/(auth)/login' 'src/app/(auth)/register'
+cp "$SCRIPT_DIR/templates/phase-03/login-page.tsx" 'src/app/(auth)/login/page.tsx'
+cp "$SCRIPT_DIR/templates/phase-03/register-page.tsx" 'src/app/(auth)/register/page.tsx'
+cp "$SCRIPT_DIR/templates/phase-03/src/lib/validations/habit.ts" src/lib/validations/habit.ts
+mkdir -p src/app/api/auth/signup src/app/api/auth/callback src/app/api/auth/signout
+cp "$SCRIPT_DIR/templates/phase-03/auth-signup-route.ts" src/app/api/auth/signup/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/auth-callback-route.ts" src/app/api/auth/callback/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/auth-signout-route.ts" src/app/api/auth/signout/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/habit-route.ts" src/app/api/habits/route.ts
+cp "$SCRIPT_DIR/templates/phase-03/habit-item-route.ts" 'src/app/api/habits/[habitId]/route.ts'
+print_success "Template API Habit berhasil disalin. Autentikasi tetap fail-closed sampai tahap auth selesai."
 
 # ============================================================================
 # STEP 9: Update .env.example
@@ -956,9 +626,13 @@ cat > .env.example << 'EOF'
 # Database
 DATABASE_URL="postgresql://user:password@localhost:5432/nexuslife?schema=public"
 
-# Auth (NextAuth.js example)
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-secret-key-here"
+# Supabase Auth (public anon key only; never put service-role keys here)
+NEXT_PUBLIC_SUPABASE_URL=""
+NEXT_PUBLIC_SUPABASE_ANON_KEY=""
+
+# Optional local-only auth scope for an isolated development database.
+# Never set this in production; production requires a verified Supabase session.
+NEXUSLIFE_LOCAL_WORKSPACE_ID=""
 
 # App
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
@@ -1020,11 +694,17 @@ npm install
 # 3. Generate Prisma Client
 npx prisma generate
 
-# 4. Run database migrations
-npx prisma migrate dev --name init
+# Local-only test shortcut (optional): set NEXUSLIFE_LOCAL_WORKSPACE_ID to an existing
+# workspace ID only on an isolated development database. Never use in production.
+# Production authentication always requires a verified Supabase session.
 
-# 5. (Optional) Seed database
-npx prisma db seed
+# 4. Database migration (do not run automatically on the existing NexusLife Supabase project)
+# Review prisma/migrations and the target database migration history first.
+# For a fresh local database only, create/apply a migration intentionally.
+# npx prisma migrate dev --name init
+
+# 5. Seed only a disposable development database after reviewing the seed script.
+# npx prisma db seed
 
 # 6. Start development server
 npm run dev
@@ -1038,5 +718,6 @@ print_success "Setup selesai. Langkah berikutnya:"
 echo "  cd $PROJECT_NAME"
 echo "  Edit .env dengan URL PostgreSQL yang valid"
 echo "  npx prisma generate"
-echo "  npx prisma migrate dev --name init"
+echo "  Pastikan auth dan environment sudah dikonfigurasi sebelum menguji API."
+echo "  Jangan jalankan migrate dev/seed terhadap Supabase yang sudah berisi data tanpa audit."
 echo "  npm run dev"

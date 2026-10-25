@@ -2,6 +2,24 @@ name: Check Supabase database connection
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - work/blueprint-phase-03
+    paths:
+      - '.github/workflows/supabase-connection-check.yml'
+      - 'prisma/schema.prisma'
+      - 'prisma/migrations/**'
+      - 'templates/phase-03/**'
+      - '.github/workflows/phase-03-checks.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/supabase-connection-check.yml'
+      - 'prisma/schema.prisma'
+      - 'prisma/migrations/**'
+      - 'templates/phase-03/**'
+      - '.github/workflows/phase-03-checks.yml'
 
 permissions:
   contents: read
@@ -15,10 +33,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Check required secrets are configured
         shell: bash
         run: |
@@ -27,5 +47,106 @@ jobs:
             exit 1
           fi
           echo "Both required secrets are present; values will not be printed."
+
+      - name: Inspect migration files for this branch
+        id: migrations
+        shell: bash
+        run: |
+          echo "Branch/ref: $GITHUB_REF"
+          echo "Commit: $(git rev-parse --short HEAD)"
+          if [ -d prisma/migrations ]; then
+            find prisma/migrations -mindepth 2 -maxdepth 2 -name migration.sql -print
+          else
+            echo "No prisma/migrations directory exists on this branch."
+          fi
+          if ! find prisma/migrations -mindepth 2 -maxdepth 2 -name migration.sql -print -quit 2>/dev/null | grep -q .; then
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping Prisma migration-status check: this branch contains no migration.sql files. This is not a database health check."
+          else
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check database connection and migration status (read-only)
+        if: steps.migrations.outputs.has_migrations == 'true'
         run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
+
+      - name: Audit Supabase RLS and grants (read-only)
+        # Run the read-only security inventory even when migrate status fails,
+        # so a pending migration does not hide the current RLS/grant state.
+        if: always() && steps.migrations.outputs.has_migrations == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          echo "Read-only security inventory for public schema:"
+          psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
+          BEGIN READ ONLY;
+          SELECT 'TABLE_RLS' AS section, tablename AS object_name,
+                 CASE WHEN rowsecurity THEN 'RLS_ENABLED' ELSE 'RLS_DISABLED' END AS detail
+          FROM pg_catalog.pg_tables
+          WHERE schemaname = 'public' AND tablename NOT LIKE 'pg_%'
+          ORDER BY tablename;
+          SELECT 'RLS_POLICY' AS section, tablename AS object_name,
+                 policyname || ' | roles=' || array_to_string(roles, ',') || ' | cmd=' || cmd AS detail
+          FROM pg_catalog.pg_policies
+          WHERE schemaname = 'public'
+          ORDER BY tablename, policyname;
+          SELECT 'BROWSER_GRANT' AS section, table_name AS object_name,
+                 grantee || ' | ' || privilege_type AS detail
+          FROM information_schema.role_table_grants
+          WHERE table_schema = 'public'
+            AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+          ORDER BY table_name, grantee, privilege_type;
+
+          -- Fail the audit if any expected app table lacks RLS.
+          DO $audit$
+          DECLARE
+            missing_rls text;
+            exposed_tables text;
+          BEGIN
+            SELECT string_agg(expected.table_name, ', ')
+              INTO missing_rls
+            FROM (VALUES
+              ('Backlink'), ('Block'), ('Document'), ('DocumentTag'),
+              ('ExerciseLog'), ('ExerciseSet'), ('Folder'), ('Habit'),
+              ('HabitLog'), ('MicroHabit'), ('Tag'), ('User'), ('Workspace'),
+              ('WorkoutExercise'), ('WorkoutPlan'), ('WorkoutSession')
+            ) AS expected(table_name)
+            LEFT JOIN pg_catalog.pg_class c
+              ON c.relname = expected.table_name AND c.relkind = 'r'
+            LEFT JOIN pg_catalog.pg_namespace n
+              ON n.oid = c.relnamespace AND n.nspname = 'public'
+            WHERE c.oid IS NULL OR n.oid IS NULL OR NOT c.relrowsecurity;
+
+            IF missing_rls IS NOT NULL THEN
+              RAISE EXCEPTION 'RLS is missing or table absent for: %', missing_rls;
+            END IF;
+
+            SELECT string_agg(DISTINCT c.relname || ' -> ' ||
+                CASE WHEN acl.grantee = 0 THEN 'PUBLIC' ELSE roles.rolname END, ', ')
+              INTO exposed_tables
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            CROSS JOIN LATERAL pg_catalog.aclexplode(
+              COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))
+            ) AS acl
+            LEFT JOIN pg_catalog.pg_roles roles ON roles.oid = acl.grantee
+            WHERE n.nspname = 'public'
+              AND c.relkind = 'r'
+              AND c.relname IN (
+                'Backlink', 'Block', 'Document', 'DocumentTag', 'ExerciseLog',
+                'ExerciseSet', 'Folder', 'Habit', 'HabitLog', 'MicroHabit',
+                'Tag', 'User', 'Workspace', 'WorkoutExercise', 'WorkoutPlan',
+                'WorkoutSession'
+              )
+              AND (acl.grantee = 0 OR roles.rolname IN ('anon', 'authenticated'));
+
+            IF exposed_tables IS NOT NULL THEN
+              RAISE EXCEPTION 'Browser/public table privileges remain: %', exposed_tables;
+            END IF;
+          END
+          $audit$;
+
+          ROLLBACK;
+          SQL

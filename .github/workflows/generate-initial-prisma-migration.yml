@@ -1,0 +1,64 @@
+name: Generate initial Prisma migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate-migration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout working branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/blueprint-phase-03
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Generate SQL and refuse to rewrite an existing migration
+        run: |
+          set -euo pipefail
+          mkdir -p prisma/migrations/0001_initial
+          tmp_sql="$(mktemp)"
+          trap 'rm -f "$tmp_sql"' EXIT
+
+          npx --yes prisma@6 migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "$tmp_sql"
+          test -s "$tmp_sql"
+
+          migration="prisma/migrations/0001_initial/migration.sql"
+          if [ -s "$migration" ]; then
+            if ! cmp -s "$tmp_sql" "$migration"; then
+              echo "::error::The initial migration already exists and differs from the current schema. Refusing to overwrite migration history. Create a reviewed, forward-only migration instead."
+              exit 1
+            fi
+            echo "Existing initial migration matches generated SQL; leaving it unchanged."
+          else
+            cp "$tmp_sql" "$migration"
+          fi
+
+          lock="prisma/migrations/migration_lock.toml"
+          expected_lock='provider = "postgresql"'
+          if [ -s "$lock" ] && ! grep -Fxq "$expected_lock" "$lock"; then
+            echo "::error::Existing migration_lock.toml has unexpected content; refusing to overwrite it."
+            exit 1
+          fi
+          if [ ! -s "$lock" ]; then
+            printf '%s\n' "$expected_lock" > "$lock"
+          fi
+
+      - name: Commit new migration files only when safe
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma/migrations
+          if git diff --cached --quiet; then
+            echo "No migration changes to commit."
+          else
+            git commit -m "Generate initial Prisma migration from schema"
+            git push origin HEAD:work/blueprint-phase-03
+          fi

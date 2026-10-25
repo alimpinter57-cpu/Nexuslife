@@ -1,0 +1,136 @@
+name: Phase 03 safety and schema checks
+
+on:
+  push:
+    branches:
+      - work/blueprint-phase-03
+    paths:
+      - "prisma/**"
+      - "templates/phase-03/**"
+      - "setup-nexuslife.sh"
+      - ".github/workflows/phase-03-checks.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "prisma/**"
+      - "templates/phase-03/**"
+      - "setup-nexuslife.sh"
+      - ".github/workflows/phase-03-checks.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-and-template-checks:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+      DIRECT_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check setup script syntax
+        run: bash -n setup-nexuslife.sh
+
+      - name: Check Prisma schema
+        run: |
+          npm install --no-save prisma@6
+          npx prisma validate --schema prisma/schema.prisma
+
+      - name: Check Habit API security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          route="templates/phase-03/habit-route.ts"
+          item="templates/phase-03/habit-item-route.ts"
+          auth="templates/phase-03/src/lib/auth.ts"
+          signup="templates/phase-03/auth-signup-route.ts"
+
+          test -f "$route"
+          test -f "$item"
+          test -f "$auth"
+          test -f "$signup"
+
+          grep -q 'export async function GET' "$route"
+          grep -q 'export async function POST' "$route"
+          grep -q 'export async function PATCH' "$item"
+          grep -q 'export async function DELETE' "$item"
+
+          # All Habit operations must derive scope from the server-validated session.
+          grep -q 'workspaceId: session.workspaceId' "$route"
+          grep -q 'workspaceId: session.workspaceId' "$item"
+          grep -q 'data: { deletedAt: new Date(), isActive: false }' "$item"
+
+          # Production authentication must fail closed when Supabase identity is missing.
+          grep -q 'supabase.auth.getUser()' "$auth"
+          grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$auth"
+          grep -q 'signupSchema' "$signup"
+          grep -q '.strict()' "$signup"
+          grep -q 'emailRedirectTo' "$signup"
+          grep -q 'NEXT_PUBLIC_APP_URL' "$signup"
+
+          # Auth must guard rendered pages and expose an actual account/logout control.
+          middleware="templates/phase-03/middleware.ts"
+          auth_controls="templates/phase-03/auth-controls.tsx"
+          account_page="templates/phase-03/account-page.tsx"
+          login_page="templates/phase-03/login-page.tsx"
+          register_page="templates/phase-03/register-page.tsx"
+          signout="templates/phase-03/auth-signout-route.ts"
+          test -f "$middleware"
+          test -f "$auth_controls"
+          test -f "$account_page"
+          test -f "$login_page"
+          test -f "$register_page"
+          test -f "$signout"
+          grep -q 'supabase.auth.getUser()' "$middleware"
+          grep -q 'NextResponse.redirect(new URL("/login"' "$middleware"
+          grep -q '/api/auth/signout' "$auth_controls"
+          grep -q 'href="/account"' "$auth_controls"
+          grep -q 'createSupabaseServerClient' "$account_page"
+          grep -q 'where: { supabaseAuthId: data.user.id, deletedAt: null }' "$account_page"
+          grep -q 'Profil belum terhubung ke database NexusLife' "$account_page"
+          grep -q 'signInWithPassword' "$login_page"
+          grep -q '/api/auth/signup' "$register_page"
+          grep -q 'src/app/account/page.tsx' setup-nexuslife.sh
+          grep -q 'src/app/(auth)/login/page.tsx' setup-nexuslife.sh
+          grep -q 'src/app/(auth)/register/page.tsx' setup-nexuslife.sh
+          grep -q 'supabase.auth.signOut()' "$signout"
+          grep -q 'templates/phase-03/middleware.ts" src/middleware.ts' setup-nexuslife.sh
+          grep -q 'templates/phase-03/auth-controls.tsx" src/components/auth-controls.tsx' setup-nexuslife.sh
+          grep -q '<AuthControls />' setup-nexuslife.sh
+
+          # Malformed JSON must be rejected, and route errors must not log raw exceptions.
+          grep -q 'request.json().catch(() => undefined)' "$route"
+          grep -q 'request.json().catch(() => undefined)' "$item"
+          if grep -Eq 'console\.error\([^)]*,[[:space:]]*error\)' "$route" "$item"; then
+            echo "Raw exception logging found in Habit API route."
+            exit 1
+          fi
+
+          # Database migration must enforce the intended server-only access boundary.
+          rls_migration="prisma/migrations/0004_server_only_rls_and_grants/migration.sql"
+          test -f "$rls_migration"
+          grep -q 'REVOKE ALL PRIVILEGES ON TABLE' "$rls_migration"
+          grep -q 'FROM PUBLIC, anon, authenticated' "$rls_migration"
+          grep -q 'ENABLE ROW LEVEL SECURITY' "$rls_migration"
+          if grep -qi 'CREATE POLICY' "$rls_migration"; then
+            echo "Unexpected browser-facing RLS policy: review the server-only access design."
+            exit 1
+          fi
+
+          # Require the expected ordered migration files to be present.
+          test -f prisma/migrations/0001_initial/migration.sql
+          test -f prisma/migrations/0002_supabase_auth_identity/migration.sql
+          test -f prisma/migrations/0003_optional_legacy_password_hash/migration.sql
+          test -f "$rls_migration"
+
+          echo "Static backend safety and migration checks passed."
+          echo "Still required before release: live migration-history/schema reconciliation, read-only Supabase RLS/grant audit, and two-user runtime isolation tests."
