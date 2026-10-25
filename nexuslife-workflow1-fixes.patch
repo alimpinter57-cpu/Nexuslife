@@ -1,0 +1,673 @@
+diff --git a/.github/workflows/deploy-initial-prisma-migration.yml b/.github/workflows/deploy-initial-prisma-migration.yml
+deleted file mode 100644
+index 6139740..0000000
+--- a/.github/workflows/deploy-initial-prisma-migration.yml
++++ /dev/null
+@@ -1,50 +0,0 @@
+-name: Deploy initial Prisma migration to Supabase
+-
+-on:
+-  workflow_dispatch:
+-    inputs:
+-      confirm_empty_database:
+-        description: "Confirm Supabase project is empty and may receive the initial schema"
+-        required: true
+-        type: choice
+-        options:
+-          - "no"
+-          - "yes"
+-
+-permissions:
+-  contents: read
+-
+-jobs:
+-  deploy-migration:
+-    if: ${{ inputs.confirm_empty_database == 'yes' }}
+-    runs-on: ubuntu-latest
+-    env:
+-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+-      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+-    steps:
+-      - name: Checkout migration branch
+-        uses: actions/checkout@v4
+-        with:
+-          ref: work/blueprint-phase-03
+-      - name: Set up Node.js
+-        uses: actions/setup-node@v4
+-        with:
+-          node-version: 20
+-      - name: Verify required secrets exist without printing them
+-        shell: bash
+-        run: |
+-          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
+-            echo "Missing DATABASE_URL or DIRECT_URL repository Actions secret."
+-            exit 1
+-          fi
+-          echo "Required database secrets are present."
+-      - name: Verify migration files exist
+-        shell: bash
+-        run: |
+-          test -s prisma/migrations/0001_initial/migration.sql
+-          test -s prisma/migrations/migration_lock.toml
+-          echo "Initial migration files found."
+-      - name: Apply committed migrations
+-        run: npx --yes prisma@6 migrate deploy --schema prisma/schema.prisma
+-      - name: Verify migration status
+-        run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
+diff --git a/.github/workflows/deploy-prisma-migrations.yml b/.github/workflows/deploy-prisma-migrations.yml
+new file mode 100644
+index 0000000..158fa10
+--- /dev/null
++++ b/.github/workflows/deploy-prisma-migrations.yml
+@@ -0,0 +1,64 @@
++name: Deploy Prisma migrations to Supabase (manual, guarded)
++
++# Applies ALL pending migrations in prisma/migrations to the database behind the
++# DATABASE_URL / DIRECT_URL secrets. Review the migration files and take a backup first.
++# Tip: add required reviewers to the "supabase-database" GitHub Environment so this
++# job waits for a second approval before it can touch the database.
++
++on:
++  workflow_dispatch:
++    inputs:
++      confirm:
++        description: "Type APPLY-MIGRATIONS to apply every pending migration to the live database"
++        required: true
++        type: string
++
++permissions:
++  contents: read
++
++concurrency:
++  group: prisma-migrate-deploy
++  cancel-in-progress: false
++
++jobs:
++  deploy-migrations:
++    if: ${{ inputs.confirm == 'APPLY-MIGRATIONS' }}
++    runs-on: ubuntu-latest
++    environment: supabase-database
++    env:
++      DATABASE_URL: ${{ secrets.DATABASE_URL }}
++      DIRECT_URL: ${{ secrets.DIRECT_URL }}
++    steps:
++      - name: Checkout migration branch
++        uses: actions/checkout@v4
++        with:
++          ref: work/blueprint-phase-03
++      - name: Set up Node.js
++        uses: actions/setup-node@v4
++        with:
++          node-version: 20
++      - name: Verify required secrets exist without printing them
++        shell: bash
++        run: |
++          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
++            echo "Missing DATABASE_URL or DIRECT_URL repository Actions secret."
++            exit 1
++          fi
++          echo "Required database secrets are present."
++      - name: Verify migration files exist
++        shell: bash
++        run: |
++          set -euo pipefail
++          test -s prisma/migrations/migration_lock.toml
++          count=0
++          for dir in prisma/migrations/*/; do
++            test -s "${dir}migration.sql"
++            count=$((count + 1))
++          done
++          echo "Found $count migration folders with non-empty migration.sql."
++      - name: Show migration state BEFORE applying (read-only; exit code ignored)
++        run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma || true
++      - name: Apply committed migrations
++        run: npx --yes prisma@6 migrate deploy --schema prisma/schema.prisma
++      - name: Verify migration status AFTER applying
++        run: npx --yes prisma@6 migrate status --schema prisma/schema.prisma
+diff --git a/.github/workflows/nexuslife-prisma-migration-tools.yml b/.github/workflows/nexuslife-prisma-migration-tools.yml
+deleted file mode 100644
+index 0363a49..0000000
+--- a/.github/workflows/nexuslife-prisma-migration-tools.yml
++++ /dev/null
+@@ -1,38 +0,0 @@
+-name: NexusLife Prisma Migration Tools
+-
+-on:
+-  workflow_dispatch:
+-
+-permissions:
+-  contents: write
+-
+-jobs:
+-  generate-migration:
+-    runs-on: ubuntu-latest
+-    steps:
+-      - name: Checkout working branch
+-        uses: actions/checkout@v4
+-        with:
+-          ref: work/blueprint-phase-03
+-          fetch-depth: 0
+-      - name: Set up Node.js
+-        uses: actions/setup-node@v4
+-        with:
+-          node-version: 20
+-      - name: Generate SQL from the canonical Prisma schema
+-        run: |
+-          mkdir -p prisma/migrations/0001_initial
+-          npx --yes prisma@6 migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/0001_initial/migration.sql
+-          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
+-          test -s prisma/migrations/0001_initial/migration.sql
+-      - name: Commit migration files to the working branch
+-        run: |
+-          git config user.name "github-actions[bot]"
+-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+-          git add prisma/migrations
+-          if git diff --cached --quiet; then
+-            echo "No migration changes to commit."
+-          else
+-            git commit -m "Generate initial Prisma migration from schema"
+-            git push origin HEAD:work/blueprint-phase-03
+-          fi
+diff --git a/.github/workflows/phase-03-checks.yml b/.github/workflows/phase-03-checks.yml
+index 1b95b85..7b833dd 100644
+--- a/.github/workflows/phase-03-checks.yml
++++ b/.github/workflows/phase-03-checks.yml
+@@ -132,5 +132,37 @@ jobs:
+           test -f prisma/migrations/0003_optional_legacy_password_hash/migration.sql
+           test -f "$rls_migration"
+ 
++          # Part 2 of the boundary: migration ledger and default privileges for future tables.
++          hardening="prisma/migrations/0005_harden_migration_ledger_and_default_privileges/migration.sql"
++          test -f "$hardening"
++          grep -q '_prisma_migrations' "$hardening"
++          grep -q 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES' "$hardening"
++          grep -q 'pg_catalog.pg_roles' "$hardening"
++          if grep -qi 'CREATE POLICY' "$hardening"; then
++            echo "Unexpected browser-facing RLS policy in the hardening migration."
++            exit 1
++          fi
++
++          # Provisioning must be idempotent and must never link accounts by email alone.
++          provision="templates/phase-03/src/lib/provision.ts"
++          day="templates/phase-03/src/lib/day.ts"
++          test -f "$provision"
++          test -f "$day"
++          grep -q 'provisionUser' templates/phase-03/src/lib/auth.ts
++          grep -q 'provisionUser' "$signup"
++          grep -q 'EMAIL_ALREADY_EXISTS' "$provision"
++          grep -q 'src/lib/provision.ts' setup-nexuslife.sh
++          grep -q 'src/lib/day.ts' setup-nexuslife.sh
++          grep -q 'habitDay' "$route"
++          grep -q 'habitDay' "$item"
++          if grep -q 'utcDay' "$route" "$item"; then
++            echo "UTC day boundary found in Habit API; use habitDay()."
++            exit 1
++          fi
++          grep -q '^DIRECT_URL=' setup-nexuslife.sh
++
++          # Dangerous workflows must stay removed: they rewrite or apply migrations unguarded.
++          test ! -f .github/workflows/nexuslife-prisma-migration-tools.yml
++
+           echo "Static backend safety and migration checks passed."
+           echo "Still required before release: live migration-history/schema reconciliation, read-only Supabase RLS/grant audit, and two-user runtime isolation tests."
+diff --git a/.github/workflows/supabase-connection-check.yml b/.github/workflows/supabase-connection-check.yml
+index 72a3116..8850fa6 100644
+--- a/.github/workflows/supabase-connection-check.yml
++++ b/.github/workflows/supabase-connection-check.yml
+@@ -82,11 +82,12 @@ jobs:
+           echo "Read-only security inventory for public schema:"
+           psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -P pager=off <<'SQL'
+           BEGIN READ ONLY;
+-          SELECT 'TABLE_RLS' AS section, tablename AS object_name,
+-                 CASE WHEN rowsecurity THEN 'RLS_ENABLED' ELSE 'RLS_DISABLED' END AS detail
+-          FROM pg_catalog.pg_tables
+-          WHERE schemaname = 'public' AND tablename NOT LIKE 'pg_%'
+-          ORDER BY tablename;
++          SELECT 'TABLE_RLS' AS section, c.relname AS object_name,
++                 CASE WHEN c.relrowsecurity THEN 'RLS_ENABLED' ELSE 'RLS_DISABLED' END AS detail
++          FROM pg_catalog.pg_class c
++          JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
++          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
++          ORDER BY c.relname;
+           SELECT 'RLS_POLICY' AS section, tablename AS object_name,
+                  policyname || ' | roles=' || array_to_string(roles, ',') || ' | cmd=' || cmd AS detail
+           FROM pg_catalog.pg_policies
+@@ -98,29 +99,47 @@ jobs:
+           WHERE table_schema = 'public'
+             AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+           ORDER BY table_name, grantee, privilege_type;
++          -- Informational: privileges that FUTURE tables in public will inherit.
++          SELECT 'DEFAULT_PRIVILEGE' AS section,
++                 pg_catalog.pg_get_userbyid(d.defaclrole) AS object_name,
++                 d.defaclobjtype || ' | schema=' || COALESCE(n.nspname, '(all)') || ' | ' || d.defaclacl::text AS detail
++          FROM pg_catalog.pg_default_acl d
++          LEFT JOIN pg_catalog.pg_namespace n ON n.oid = d.defaclnamespace
++          WHERE d.defaclnamespace = 0 OR n.nspname = 'public'
++          ORDER BY 2, 3;
+ 
+-          -- Fail the audit if any expected app table lacks RLS.
++          -- Fail the audit on ANY table in public (including _prisma_migrations and future tables),
++          -- not just a hard-coded list.
+           DO $audit$
+           DECLARE
++            missing_tables text;
+             missing_rls text;
+             exposed_tables text;
+           BEGIN
+             SELECT string_agg(expected.table_name, ', ')
+-              INTO missing_rls
++              INTO missing_tables
+             FROM (VALUES
+               ('Backlink'), ('Block'), ('Document'), ('DocumentTag'),
+               ('ExerciseLog'), ('ExerciseSet'), ('Folder'), ('Habit'),
+               ('HabitLog'), ('MicroHabit'), ('Tag'), ('User'), ('Workspace'),
+               ('WorkoutExercise'), ('WorkoutPlan'), ('WorkoutSession')
+             ) AS expected(table_name)
+-            LEFT JOIN pg_catalog.pg_class c
+-              ON c.relname = expected.table_name AND c.relkind = 'r'
+-            LEFT JOIN pg_catalog.pg_namespace n
+-              ON n.oid = c.relnamespace AND n.nspname = 'public'
+-            WHERE c.oid IS NULL OR n.oid IS NULL OR NOT c.relrowsecurity;
++            WHERE NOT EXISTS (
++              SELECT 1 FROM pg_catalog.pg_class c
++              JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
++              WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relname = expected.table_name
++            );
++            IF missing_tables IS NOT NULL THEN
++              RAISE EXCEPTION 'Expected application tables are missing: %', missing_tables;
++            END IF;
+ 
++            SELECT string_agg(c.relname, ', ')
++              INTO missing_rls
++            FROM pg_catalog.pg_class c
++            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
++            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity;
+             IF missing_rls IS NOT NULL THEN
+-              RAISE EXCEPTION 'RLS is missing or table absent for: %', missing_rls;
++              RAISE EXCEPTION 'RLS is disabled for public tables: %', missing_rls;
+             END IF;
+ 
+             SELECT string_agg(DISTINCT c.relname || ' -> ' ||
+@@ -133,15 +152,8 @@ jobs:
+             ) AS acl
+             LEFT JOIN pg_catalog.pg_roles roles ON roles.oid = acl.grantee
+             WHERE n.nspname = 'public'
+-              AND c.relkind = 'r'
+-              AND c.relname IN (
+-                'Backlink', 'Block', 'Document', 'DocumentTag', 'ExerciseLog',
+-                'ExerciseSet', 'Folder', 'Habit', 'HabitLog', 'MicroHabit',
+-                'Tag', 'User', 'Workspace', 'WorkoutExercise', 'WorkoutPlan',
+-                'WorkoutSession'
+-              )
++              AND c.relkind IN ('r', 'p')
+               AND (acl.grantee = 0 OR roles.rolname IN ('anon', 'authenticated'));
+-
+             IF exposed_tables IS NOT NULL THEN
+               RAISE EXCEPTION 'Browser/public table privileges remain: %', exposed_tables;
+             END IF;
+diff --git a/prisma/migrations/0005_harden_migration_ledger_and_default_privileges/migration.sql b/prisma/migrations/0005_harden_migration_ledger_and_default_privileges/migration.sql
+new file mode 100644
+index 0000000..d5064cf
+--- /dev/null
++++ b/prisma/migrations/0005_harden_migration_ledger_and_default_privileges/migration.sql
+@@ -0,0 +1,42 @@
++-- NexusLife Phase 03 security boundary, part 2 (forward-only; review before applying).
++-- 0004 hardened the 16 application tables. This migration closes two remaining gaps:
++--   1. Prisma's own ledger (public."_prisma_migrations") is created in `public` and can
++--      inherit Supabase's default grants to anon/authenticated.
++--   2. Tables created by FUTURE migrations would inherit those default grants again.
++-- No policies are created: direct browser access stays denied until a reviewed client API exists.
++-- Role checks make this safe on plain PostgreSQL (local/CI), where anon/authenticated do not exist.
++-- ALTER DEFAULT PRIVILEGES affects only objects later created by the role running this migration
++-- (normally `postgres` on Supabase). Verify with the CI audit's DEFAULT_PRIVILEGE section.
++
++BEGIN;
++
++DO $$
++DECLARE
++  browser_role text;
++BEGIN
++  IF to_regclass('public."_prisma_migrations"') IS NOT NULL THEN
++    EXECUTE 'REVOKE ALL PRIVILEGES ON TABLE public."_prisma_migrations" FROM PUBLIC';
++    FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
++      IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = browser_role) THEN
++        EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE public."_prisma_migrations" FROM %I', browser_role);
++      END IF;
++    END LOOP;
++    EXECUTE 'ALTER TABLE public."_prisma_migrations" ENABLE ROW LEVEL SECURITY';
++  END IF;
++END
++$$;
++
++DO $$
++DECLARE
++  browser_role text;
++BEGIN
++  FOREACH browser_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
++    IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = browser_role) THEN
++      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM %I', browser_role);
++      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I', browser_role);
++    END IF;
++  END LOOP;
++END
++$$;
++
++COMMIT;
+diff --git a/setup-nexuslife.sh b/setup-nexuslife.sh
+index 206a66e..5484e02 100644
+--- a/setup-nexuslife.sh
++++ b/setup-nexuslife.sh
+@@ -597,6 +597,8 @@ print_step "Bonus: Menambahkan API Habit berbasis PostgreSQL..."
+ mkdir -p src/app/api/habits/\[habitId\] src/lib
+ cp "$SCRIPT_DIR/templates/phase-03/src/lib/auth.ts" src/lib/auth.ts
+ cp "$SCRIPT_DIR/templates/phase-03/src/lib/prisma.ts" src/lib/prisma.ts
++cp "$SCRIPT_DIR/templates/phase-03/src/lib/provision.ts" src/lib/provision.ts
++cp "$SCRIPT_DIR/templates/phase-03/src/lib/day.ts" src/lib/day.ts
+ cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-server.ts" src/lib/supabase-server.ts
+ cp "$SCRIPT_DIR/templates/phase-03/src/lib/supabase-browser.ts" src/lib/supabase-browser.ts
+ cp "$SCRIPT_DIR/templates/phase-03/middleware.ts" src/middleware.ts
+@@ -625,6 +627,8 @@ print_step "Bonus: Membuat file .env.example..."
+ cat > .env.example << 'EOF'
+ # Database
+ DATABASE_URL="postgresql://user:password@localhost:5432/nexuslife?schema=public"
++# Required by prisma/schema.prisma (directUrl). Use the direct or session-pooler URI for migrations.
++DIRECT_URL="postgresql://user:password@localhost:5432/nexuslife?schema=public"
+ 
+ # Supabase Auth (public anon key only; never put service-role keys here)
+ NEXT_PUBLIC_SUPABASE_URL=""
+@@ -634,6 +638,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=""
+ # Never set this in production; production requires a verified Supabase session.
+ NEXUSLIFE_LOCAL_WORKSPACE_ID=""
+ 
++# Calendar day boundary for habit logs (IANA name). Defaults to Asia/Jakarta.
++NEXUSLIFE_TIMEZONE="Asia/Jakarta"
++
+ # App
+ NEXT_PUBLIC_APP_URL="http://localhost:3000"
+ NEXT_PUBLIC_APP_NAME="NexusLife"
+diff --git a/templates/phase-03/auth-signup-route.ts b/templates/phase-03/auth-signup-route.ts
+index d39bafd..d619014 100644
+--- a/templates/phase-03/auth-signup-route.ts
++++ b/templates/phase-03/auth-signup-route.ts
+@@ -1,6 +1,6 @@
+ import { NextResponse } from "next/server"
+ import { z } from "zod"
+-import { prisma } from "@/lib/prisma"
++import { provisionUser } from "@/lib/provision"
+ import { createSupabaseServerClient } from "@/lib/supabase-server"
+ 
+ export const runtime = "nodejs"
+@@ -55,31 +55,20 @@ export async function POST(request: Request) {
+     return NextResponse.json({ error: "Pendaftaran belum berhasil. Periksa data atau coba masuk jika sudah memiliki akun." }, { status: 400 })
+   }
+ 
+-  try {
+-    await prisma.$transaction(async (tx) => {
+-      const existingByAuthId = await tx.user.findUnique({ where: { supabaseAuthId: data.user.id }, select: { id: true } })
+-      if (existingByAuthId) return
+-      const existingByEmail = await tx.user.findUnique({ where: { email }, select: { id: true } })
+-      if (existingByEmail) {
+-        // Never link accounts based on email alone; an existing account requires a reviewed linking flow.
+-        throw new Error("ACCOUNT_LINK_REQUIRES_REVIEW")
+-      }
+-      const user = await tx.user.create({
+-        data: {
+-          email,
+-          supabaseAuthId: data.user.id,
+-          passwordHash: null,
+-          name: parsed.data.name,
+-          emailVerified: Boolean(data.user.email_confirmed_at),
+-          workspaces: { create: { name: "Workspace pribadi", slug: `personal-${data.user.id}` } },
+-        },
+-        select: { id: true },
+-      })
+-      return user
+-    })
+-  } catch {
+-    // A Supabase account may exist, but do not create an unsafe mapping or disclose DB details.
+-    return NextResponse.json({ error: "Akun autentikasi dibuat tetapi penyiapan workspace perlu bantuan admin. Jangan daftar berulang; hubungi pengelola." }, { status: 503 })
++  const provisioned = await provisionUser({
++    id: data.user.id,
++    email,
++    name: parsed.data.name,
++    emailConfirmedAt: data.user.email_confirmed_at,
++  })
++  if (!provisioned.ok && provisioned.reason === "EMAIL_ALREADY_EXISTS") {
++    // A legacy internal account uses this email. Never link by email alone; needs a reviewed flow.
++    return NextResponse.json({ error: "Akun dibuat, tetapi perlu ditinjau pengelola sebelum dapat dipakai. Hubungi pengelola." }, { status: 503 })
++  }
++  if (!provisioned.ok) {
++    // The Supabase account exists. Provisioning is idempotent and also runs on first authenticated
++    // request, so a later login repairs it. Do not disclose database details.
++    return NextResponse.json({ error: "Akun dibuat, tetapi penyiapan workspace tertunda. Coba masuk beberapa saat lagi; jika tetap gagal, hubungi pengelola." }, { status: 503 })
+   }
+ 
+   return NextResponse.json({ message: data.session ? "Pendaftaran berhasil." : "Periksa email untuk menyelesaikan verifikasi." }, { status: 201 })
+diff --git a/templates/phase-03/habit-item-route.ts b/templates/phase-03/habit-item-route.ts
+index 21df80d..f754583 100644
+--- a/templates/phase-03/habit-item-route.ts
++++ b/templates/phase-03/habit-item-route.ts
+@@ -1,6 +1,7 @@
+ import { NextResponse } from "next/server"
+ import { prisma } from "@/lib/prisma"
+ import { auth } from "@/lib/auth"
++import { habitDay } from "@/lib/day"
+ import { z } from "zod"
+ 
+ export const runtime = "nodejs"
+@@ -13,10 +14,6 @@ const updateSchema = z.object({
+   todayCompleted: z.boolean().optional(),
+ }).strict().refine((value) => Object.keys(value).length > 0, { message: "No changes supplied." })
+ 
+-function utcDay(date = new Date()) {
+-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+-}
+-
+ type RouteContext = { params: Promise<{ habitId: string }> }
+ 
+ export async function PATCH(request: Request, context: RouteContext) {
+@@ -41,7 +38,7 @@ export async function PATCH(request: Request, context: RouteContext) {
+         ? await tx.habit.update({ where: { id: habitId, workspaceId: session.workspaceId, deletedAt: null }, data: updates })
+         : await tx.habit.findFirstOrThrow({ where: { id: habitId, workspaceId: session.workspaceId, deletedAt: null } })
+       if (typeof todayCompleted === "boolean") {
+-        const date = utcDay()
++        const date = habitDay()
+         await tx.habitLog.upsert({
+           where: { habitId_date: { habitId, date } },
+           create: { habitId, date, isCompleted: todayCompleted, completedAt: todayCompleted ? new Date() : null },
+diff --git a/templates/phase-03/habit-route.ts b/templates/phase-03/habit-route.ts
+index f60f060..e698a53 100644
+--- a/templates/phase-03/habit-route.ts
++++ b/templates/phase-03/habit-route.ts
+@@ -1,20 +1,17 @@
+ import { NextResponse } from "next/server"
+ import { prisma } from "@/lib/prisma"
+ import { auth } from "@/lib/auth"
++import { habitDay } from "@/lib/day"
+ import { createHabitSchema } from "@/lib/validations/habit"
+ 
+ export const runtime = "nodejs"
+ export const dynamic = "force-dynamic"
+ 
+-function utcDay(date = new Date()) {
+-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+-}
+-
+ export async function GET() {
+   try {
+     const session = await auth()
+     if (!session) return NextResponse.json({ error: "Authentication is required." }, { status: 401 })
+-    const today = utcDay()
++    const today = habitDay()
+     const habits = await prisma.habit.findMany({
+       where: { workspaceId: session.workspaceId, deletedAt: null, isActive: true },
+       include: { logs: { where: { date: today }, take: 1 } },
+diff --git a/templates/phase-03/src/lib/auth.ts b/templates/phase-03/src/lib/auth.ts
+index f646767..0a9cb89 100644
+--- a/templates/phase-03/src/lib/auth.ts
++++ b/templates/phase-03/src/lib/auth.ts
+@@ -1,13 +1,15 @@
+ import { prisma } from "@/lib/prisma"
+ import { createSupabaseServerClient } from "@/lib/supabase-server"
++import { provisionUser } from "@/lib/provision"
+ 
+ /** Validate the Supabase session on the server and resolve an internal workspace. */
+ export async function auth() {
+   try {
+     // Optional local-only scope for isolated development/test databases.
+     // Never enable this bypass in production; production always requires a verified Supabase session.
++    // Also refused on any Vercel deployment (Preview included), whatever NODE_ENV says.
+     const localWorkspaceId = process.env.NEXUSLIFE_LOCAL_WORKSPACE_ID
+-    if (process.env.NODE_ENV !== "production" && localWorkspaceId) {
++    if (process.env.NODE_ENV !== "production" && !process.env.VERCEL && !process.env.VERCEL_ENV && localWorkspaceId) {
+       const workspace = await prisma.workspace.findFirst({
+         where: { id: localWorkspaceId, deletedAt: null },
+         select: { id: true, ownerId: true, owner: { select: { id: true, email: true } } },
+@@ -24,16 +26,30 @@ export async function auth() {
+       where: { supabaseAuthId: data.user.id, deletedAt: null },
+       select: { id: true, email: true },
+     })
+-    if (!user) return null
++    if (user) {
++      const workspace = await prisma.workspace.findFirst({
++        where: { ownerId: user.id, deletedAt: null },
++        orderBy: { createdAt: "asc" },
++        select: { id: true },
++      })
++      if (workspace) return { user, workspaceId: workspace.id }
++    }
+ 
+-    const workspace = await prisma.workspace.findFirst({
+-      where: { ownerId: user.id, deletedAt: null },
+-      orderBy: { createdAt: "asc" },
+-      select: { id: true },
++    // Verified Supabase identity without a complete internal profile (for example a signup whose
++    // provisioning step failed). Create it idempotently for this identity only; never link by email.
++    const metadataName = data.user.user_metadata?.name
++    const provisioned = await provisionUser({
++      id: data.user.id,
++      email: data.user.email,
++      name: typeof metadataName === "string" ? metadataName.trim().slice(0, 80) || null : null,
++      emailConfirmedAt: data.user.email_confirmed_at,
+     })
+-    if (!workspace) return null
++    if (!provisioned.ok) return null
+ 
+-    return { user, workspaceId: workspace.id }
++    return {
++      user: { id: provisioned.userId, email: data.user.email.toLowerCase() },
++      workspaceId: provisioned.workspaceId,
++    }
+   } catch (error) {
+     // Keep secrets and session tokens out of logs. Missing configuration fails closed.
+     console.error("Authentication check failed; request denied.")
+diff --git a/templates/phase-03/src/lib/day.ts b/templates/phase-03/src/lib/day.ts
+new file mode 100644
+index 0000000..df228ee
+--- /dev/null
++++ b/templates/phase-03/src/lib/day.ts
+@@ -0,0 +1,27 @@
++const DEFAULT_TIME_ZONE = "Asia/Jakarta"
++
++function resolveTimeZone(): string {
++  const configured = process.env.NEXUSLIFE_TIMEZONE?.trim() || DEFAULT_TIME_ZONE
++  try {
++    new Intl.DateTimeFormat("en-CA", { timeZone: configured })
++    return configured
++  } catch {
++    return DEFAULT_TIME_ZONE
++  }
++}
++
++/**
++ * Calendar day in the app time zone (default Asia/Jakarta, override with NEXUSLIFE_TIMEZONE),
++ * stored as UTC midnight of that local date so HabitLog's (habitId, date) unique key stays stable.
++ * UTC-based days would roll over at 07:00 WIB and credit early-morning habits to the previous day.
++ */
++export function habitDay(now: Date = new Date()): Date {
++  const parts = new Intl.DateTimeFormat("en-CA", {
++    timeZone: resolveTimeZone(),
++    year: "numeric",
++    month: "2-digit",
++    day: "2-digit",
++  }).formatToParts(now)
++  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value)
++  return new Date(Date.UTC(part("year"), part("month") - 1, part("day")))
++}
+diff --git a/templates/phase-03/src/lib/provision.ts b/templates/phase-03/src/lib/provision.ts
+new file mode 100644
+index 0000000..4c993c7
+--- /dev/null
++++ b/templates/phase-03/src/lib/provision.ts
+@@ -0,0 +1,71 @@
++import "server-only"
++import { Prisma } from "@prisma/client"
++import { prisma } from "@/lib/prisma"
++
++export type AuthIdentity = {
++  /** Supabase Auth UUID, already validated server-side via supabase.auth.getUser(). */
++  id: string
++  email: string
++  name?: string | null
++  emailConfirmedAt?: string | null
++}
++
++export type ProvisionResult =
++  | { ok: true; userId: string; workspaceId: string }
++  | { ok: false; reason: "EMAIL_ALREADY_EXISTS" | "FAILED" }
++
++/**
++ * Idempotently create the internal User + default Workspace for a verified Supabase identity.
++ * Safe to call repeatedly: signup retries and first-request self-healing both use it.
++ * Never links an existing account by email alone (that needs a reviewed linking flow).
++ */
++export async function provisionUser(identity: AuthIdentity): Promise<ProvisionResult> {
++  const email = identity.email.trim().toLowerCase()
++
++  for (let attempt = 0; attempt < 2; attempt++) {
++    try {
++      return await prisma.$transaction(async (tx): Promise<ProvisionResult> => {
++        let user = await tx.user.findFirst({
++          where: { supabaseAuthId: identity.id, deletedAt: null },
++          select: { id: true },
++        })
++
++        if (!user) {
++          const sameEmail = await tx.user.findUnique({ where: { email }, select: { id: true } })
++          if (sameEmail) return { ok: false, reason: "EMAIL_ALREADY_EXISTS" }
++          user = await tx.user.create({
++            data: {
++              email,
++              supabaseAuthId: identity.id,
++              passwordHash: null,
++              name: identity.name ?? null,
++              emailVerified: Boolean(identity.emailConfirmedAt),
++            },
++            select: { id: true },
++          })
++        }
++
++        let workspace = await tx.workspace.findFirst({
++          where: { ownerId: user.id, deletedAt: null },
++          orderBy: { createdAt: "asc" },
++          select: { id: true },
++        })
++        if (!workspace) {
++          workspace = await tx.workspace.create({
++            data: { name: "Workspace pribadi", slug: `personal-${identity.id}`, ownerId: user.id },
++            select: { id: true },
++          })
++        }
++
++        return { ok: true, userId: user.id, workspaceId: workspace.id }
++      })
++    } catch (error) {
++      // A concurrent request may have provisioned the same identity; re-read once.
++      const isUniqueConflict = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
++      if (isUniqueConflict && attempt === 0) continue
++      console.error("User provisioning failed.")
++      return { ok: false, reason: "FAILED" }
++    }
++  }
++  return { ok: false, reason: "FAILED" }
++}
